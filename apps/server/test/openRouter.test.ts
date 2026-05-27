@@ -39,6 +39,19 @@ describe("buildImageGenerationPayload", () => {
     expect(payload.messages[0]?.content[0]?.text).toContain("纯色 #00ff00 背景");
     expect(payload.seed).toBe(123);
   });
+
+  it("uses image-only output modalities for Seedream image generation", () => {
+    const payload = buildImageGenerationPayload({
+      model: "bytedance-seed/seedream-4.5",
+      prompt: "正面像素角色",
+      targetSize: 512,
+      keyColor: "#00ff00",
+      direction: "front"
+    });
+
+    expect(payload.modalities).toEqual(["image"]);
+    expect(payload).not.toHaveProperty("image_config");
+  });
 });
 
 describe("buildVideoGenerationPayload", () => {

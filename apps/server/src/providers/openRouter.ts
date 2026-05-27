@@ -69,14 +69,37 @@ export function buildImageGenerationPayload(input: BuildImageGenerationPayloadIn
         content
       }
     ],
-    modalities: ["image", "text"] as const,
-    image_config: {
-      aspect_ratio: "1:1" as const,
-      image_size: "1K" as const
-    },
+    modalities: getImageGenerationModalities(input.model),
+    ...buildImageConfig(input.model),
     stream: false,
     ...(input.seed === undefined ? {} : { seed: input.seed })
   };
+}
+
+function getImageGenerationModalities(model: string) {
+  return isImageOnlyModel(model) ? (["image"] as const) : (["image", "text"] as const);
+}
+
+function buildImageConfig(model: string) {
+  if (isImageOnlyModel(model)) {
+    return {};
+  }
+  return {
+    image_config: {
+      aspect_ratio: "1:1" as const,
+      image_size: "1K" as const
+    }
+  };
+}
+
+function isImageOnlyModel(model: string): boolean {
+  return [
+    "bytedance-seed/",
+    "black-forest-labs/",
+    "recraft/",
+    "sourceful/",
+    "x-ai/grok-imagine-image"
+  ].some((prefix) => model.startsWith(prefix));
 }
 
 export function buildVideoGenerationPayload(input: BuildVideoGenerationPayloadInput) {

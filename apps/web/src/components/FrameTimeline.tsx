@@ -5,10 +5,10 @@ interface FrameTimelineProps {
 
 export function FrameTimeline({ fps, loop }: FrameTimelineProps) {
   return (
-    <section className="timeline-panel" aria-label="Frame timeline">
+    <section className="timeline-panel" aria-label="帧时间线">
       <div className="timeline-meta">
         <span>{fps} FPS</span>
-        <span>{loop ? "Loop" : "Once"}</span>
+        <span>{loop ? "循环" : "单次"}</span>
       </div>
       <div className="frame-strip">
         {Array.from({ length: 8 }, (_, index) => (

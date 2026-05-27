@@ -5,10 +5,10 @@ import {
 } from "../src/providers/openRouter";
 
 describe("buildImageGenerationPayload", () => {
-  it("builds an OpenRouter image generation payload for square pixel-art first frames", () => {
+  it("builds an OpenRouter image generation payload with Chinese prompt instructions", () => {
     const payload = buildImageGenerationPayload({
       model: "google/gemini-3.1-flash-image-preview",
-      prompt: "blue armored heroine",
+      prompt: "蓝色铠甲女主角",
       targetSize: 768,
       keyColor: "#00ff00",
       direction: "front",
@@ -25,7 +25,7 @@ describe("buildImageGenerationPayload", () => {
     expect(payload.messages[0]?.content).toEqual([
       expect.objectContaining({
         type: "text",
-        text: expect.stringContaining("blue armored heroine")
+        text: expect.stringContaining("蓝色铠甲女主角")
       }),
       expect.objectContaining({
         type: "image_url",
@@ -35,8 +35,8 @@ describe("buildImageGenerationPayload", () => {
       })
     ]);
     expect(payload.messages[0]?.content[0]?.text).toContain("768x768");
-    expect(payload.messages[0]?.content[0]?.text).toContain("front-facing");
-    expect(payload.messages[0]?.content[0]?.text).toContain("solid #00ff00 background");
+    expect(payload.messages[0]?.content[0]?.text).toContain("正面");
+    expect(payload.messages[0]?.content[0]?.text).toContain("纯色 #00ff00 背景");
     expect(payload.seed).toBe(123);
   });
 });

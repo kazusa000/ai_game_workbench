@@ -1,11 +1,11 @@
 export const ACTION_TEMPLATES = {
-  idle: "side-view, 2D game character idle animation, body slightly sways",
-  walk: "side-view, 2D game character walks forward",
-  run: "side-view, 2D game character runs forward",
-  jump: "side-view, 2D game character jumps in place, takeoff then fall",
-  attack: "side-view, 2D game character performs a clear attack motion",
-  hit: "side-view, 2D game character gets hit and recoils backward",
-  defeated: "side-view, 2D game character kneels down and falls to the ground",
+  idle: "侧面视角，2D游戏角色待机动画，身体轻微起伏",
+  walk: "侧面视角，2D游戏角色向前行走",
+  run: "侧面视角，2D游戏角色向前奔跑",
+  jump: "侧面视角，2D游戏角色原地跳跃，包含起跳和下落",
+  attack: "侧面视角，2D游戏角色做出清晰攻击动作",
+  hit: "侧面视角，2D游戏角色受击并向后退缩",
+  defeated: "侧面视角，2D游戏角色跪倒并倒地",
   custom: ""
 } as const;
 
@@ -19,15 +19,15 @@ export interface BuildAnimationPromptInput {
 
 export function buildAnimationPrompt(input: BuildAnimationPromptInput): string {
   const baseConstraints = [
-    "single 2D game character",
-    "full body",
-    "centered",
-    "no camera movement",
-    `solid ${input.keyColor} background`,
-    "no shadow",
-    "no ground",
-    "no particles",
-    "looping sprite animation style"
+    "单个2D游戏角色",
+    "全身",
+    "居中",
+    "镜头固定",
+    `纯色 ${input.keyColor} 背景`,
+    "无阴影",
+    "无地面",
+    "无粒子",
+    "循环精灵动画风格"
   ];
   const template = ACTION_TEMPLATES[input.actionTemplate];
   return [...baseConstraints, template, input.actionPrompt]

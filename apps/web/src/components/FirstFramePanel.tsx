@@ -39,17 +39,17 @@ export function FirstFramePanel({
 }: FirstFramePanelProps) {
   return (
     <section className="panel">
-      <div className="panel-title">First Frame</div>
+      <div className="panel-title">首帧</div>
       <div className="two-actions">
-        <button className="tool-button" type="button" onClick={() => onStatus("Select a square pixel-art PNG first frame.")}>
-          <Upload size={16} /> Upload First Frame
+        <button className="tool-button" type="button" onClick={() => onStatus("请选择一张正方形像素风 PNG 首帧。")}>
+          <Upload size={16} /> 上传首帧
         </button>
-        <button className="tool-button" type="button" onClick={() => onStatus("Generate a square pixel-art first frame through OpenRouter.")}>
-          <ImagePlus size={16} /> Generate First Frame
+        <button className="tool-button" type="button" onClick={() => onStatus("通过 OpenRouter 生成正方形像素风首帧。")}>
+          <ImagePlus size={16} /> 生成首帧
         </button>
       </div>
       <label className="field">
-        Direction
+        朝向
         <select
           value={direction}
           onChange={(event) => onDirectionChange(event.target.value as CharacterDirection)}
@@ -62,7 +62,7 @@ export function FirstFramePanel({
         </select>
       </label>
       <label className="field">
-        Image Generation Size
+        图片生成尺寸
         <input
           type="number"
           min={64}
@@ -73,7 +73,7 @@ export function FirstFramePanel({
         />
       </label>
       <label className="field">
-        Image Prompt
+        图片提示词
         <textarea
           value={imagePrompt}
           onChange={(event) => onImagePromptChange(event.target.value)}
@@ -81,7 +81,7 @@ export function FirstFramePanel({
         />
       </label>
       <label className="field">
-        Image Prompt Instructions
+        图片提示词约束
         <textarea
           value={imagePromptInstructions}
           onChange={(event) => onImagePromptInstructionsChange(event.target.value)}
@@ -89,7 +89,7 @@ export function FirstFramePanel({
         />
       </label>
       <label className="field">
-        Final Image Prompt
+        最终图片提示词
         <textarea
           value={finalImagePrompt}
           onChange={(event) => onFinalImagePromptChange(event.target.value)}
@@ -97,7 +97,7 @@ export function FirstFramePanel({
         />
       </label>
       <div className="hint-line">
-        Export target {targetSize}px, generated first frame {imageGenerationSize}px, key background {keyColor}
+        导出目标 {targetSize}px，生成首帧 {imageGenerationSize}px，抠图背景 {keyColor}
       </div>
     </section>
   );

@@ -28,14 +28,14 @@ export interface OpenRouterClientOptions {
 
 export function buildImageGenerationPayload(input: BuildImageGenerationPayloadInput) {
   const text = [
-    "Generate a square pixel-art first frame for a 2D game sprite animation.",
-    `Character: ${input.prompt}`,
-    `Canvas: ${input.targetSize}x${input.targetSize}`,
-    `View direction: ${CHARACTER_DIRECTION_LABELS[input.direction]}`,
-    "single full-body character, centered, clean silhouette",
-    `solid ${input.keyColor} background`,
-    "no shadow, no ground, no particles, no text, no UI",
-    "If a reference image is provided, preserve the character identity, outfit colors, and major silhouette while converting it into square pixel art."
+    "生成一张用于2D游戏精灵动画的正方形像素风首帧。",
+    `角色：${input.prompt}`,
+    `画布：${input.targetSize}x${input.targetSize}`,
+    `朝向：${CHARACTER_DIRECTION_LABELS[input.direction]}`,
+    "单个全身角色，居中，轮廓清晰",
+    `纯色 ${input.keyColor} 背景`,
+    "无阴影、无地面、无粒子、无文字、无UI",
+    "如果提供参考图，保留角色身份、服装颜色和主要轮廓，并转换为正方形像素风。"
   ].join(" ");
   const content = input.referenceImageDataUrl
     ? [

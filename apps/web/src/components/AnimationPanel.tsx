@@ -14,21 +14,31 @@ interface AnimationPanelProps {
 }
 
 const actionTemplates = ["idle", "walk", "run", "jump", "attack", "hit", "defeated", "custom"];
+const actionTemplateLabels: Record<string, string> = {
+  idle: "待机",
+  walk: "行走",
+  run: "奔跑",
+  jump: "跳跃",
+  attack: "攻击",
+  hit: "受击",
+  defeated: "倒地",
+  custom: "自定义"
+};
 
 export function AnimationPanel(props: AnimationPanelProps) {
   return (
     <section className="panel">
-      <div className="panel-title">Animation</div>
+      <div className="panel-title">动画</div>
       <label className="field">
-        Action Template
+        动作模板
         <select value={props.actionTemplate} onChange={(event) => props.onActionTemplateChange(event.target.value)}>
           {actionTemplates.map((template) => (
-            <option value={template} key={template}>{template}</option>
+            <option value={template} key={template}>{actionTemplateLabels[template]}</option>
           ))}
         </select>
       </label>
       <label className="field">
-        Video Base Prompt
+        视频基础提示词
         <textarea
           value={props.videoBasePrompt}
           rows={3}
@@ -36,7 +46,7 @@ export function AnimationPanel(props: AnimationPanelProps) {
         />
       </label>
       <label className="field">
-        Template Prompt
+        模板提示词
         <textarea
           value={props.templatePrompt}
           rows={2}
@@ -44,7 +54,7 @@ export function AnimationPanel(props: AnimationPanelProps) {
         />
       </label>
       <label className="field">
-        Action Prompt
+        动作提示词
         <textarea
           value={props.actionPrompt}
           rows={3}
@@ -52,11 +62,11 @@ export function AnimationPanel(props: AnimationPanelProps) {
         />
       </label>
       <label className="field">
-        Key Color
+        抠图背景色
         <input type="color" value={props.keyColor} onChange={(event) => props.onKeyColorChange(event.target.value)} />
       </label>
       <label className="field">
-        Final Video Prompt
+        最终视频提示词
         <textarea
           value={props.finalVideoPrompt}
           rows={5}

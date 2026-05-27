@@ -8,55 +8,59 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("opens the AI Sprite Animator module from the workbench hub", () => {
+  it("opens the AI sprite animator module from the Chinese workbench hub", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /AI Game Workbench/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /AI 游戏工作台/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /AI Sprite Animator/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI 精灵动画生成/i }));
 
-    expect(screen.getByRole("heading", { name: /AI Sprite Animator/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Upload First Frame/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Generate First Frame/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Direction/i)).toHaveValue("front");
-    expect(screen.getByLabelText(/Asset Key/i)).toHaveValue("hero_mecha");
-    expect(screen.getByLabelText(/Animation Key/i)).toHaveValue("idle");
+    expect(screen.getByRole("heading", { name: /AI 精灵动画生成/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /上传首帧/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /生成首帧/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/朝向/i)).toHaveValue("front");
+    expect(screen.getByLabelText(/资产标识/i)).toHaveValue("hero_mecha");
+    expect(screen.getByLabelText(/动画标识/i)).toHaveValue("idle");
   });
 
-  it("exposes generation prompts and custom image size as editable controls", () => {
+  it("exposes Chinese generation prompts and custom image size as editable controls", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /AI Sprite Animator/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI 精灵动画生成/i }));
 
-    const imagePrompt = screen.getByLabelText(/^Image Prompt$/i);
-    fireEvent.change(imagePrompt, { target: { value: "front-facing pixel knight" } });
-    expect(imagePrompt).toHaveValue("front-facing pixel knight");
+    const imagePrompt = screen.getByLabelText(/^图片提示词$/i);
+    expect((imagePrompt as HTMLTextAreaElement).value).toContain("像素");
+    fireEvent.change(imagePrompt, { target: { value: "正面像素骑士" } });
+    expect(imagePrompt).toHaveValue("正面像素骑士");
 
-    const imageInstructions = screen.getByLabelText(/Image Prompt Instructions/i);
-    fireEvent.change(imageInstructions, { target: { value: "use a flat magenta background" } });
-    expect(imageInstructions).toHaveValue("use a flat magenta background");
+    const imageInstructions = screen.getByLabelText(/图片提示词约束/i);
+    fireEvent.change(imageInstructions, { target: { value: "使用纯色洋红背景" } });
+    expect(imageInstructions).toHaveValue("使用纯色洋红背景");
 
-    const imageSize = screen.getByLabelText(/Image Generation Size/i);
+    const imageSize = screen.getByLabelText(/图片生成尺寸/i);
     fireEvent.change(imageSize, { target: { value: "768" } });
     expect(imageSize).toHaveValue(768);
 
-    const finalImagePrompt = screen.getByLabelText(/Final Image Prompt/i);
-    fireEvent.change(finalImagePrompt, { target: { value: "final custom square pixel-art prompt" } });
-    expect(finalImagePrompt).toHaveValue("final custom square pixel-art prompt");
+    const finalImagePrompt = screen.getByLabelText(/最终图片提示词/i);
+    expect((finalImagePrompt as HTMLTextAreaElement).value).toContain("画布");
+    fireEvent.change(finalImagePrompt, { target: { value: "最终自定义正方形像素角色提示词" } });
+    expect(finalImagePrompt).toHaveValue("最终自定义正方形像素角色提示词");
 
-    const videoBasePrompt = screen.getByLabelText(/Video Base Prompt/i);
-    fireEvent.change(videoBasePrompt, { target: { value: "single sprite, locked camera" } });
-    expect(videoBasePrompt).toHaveValue("single sprite, locked camera");
+    const finalVideoPrompt = screen.getByLabelText(/最终视频提示词/i);
+    expect((finalVideoPrompt as HTMLTextAreaElement).value).toContain("循环精灵动画");
 
-    const templatePrompt = screen.getByLabelText(/Template Prompt/i);
-    fireEvent.change(templatePrompt, { target: { value: "front-facing run cycle" } });
-    expect(templatePrompt).toHaveValue("front-facing run cycle");
+    const videoBasePrompt = screen.getByLabelText(/视频基础提示词/i);
+    fireEvent.change(videoBasePrompt, { target: { value: "单个精灵，镜头锁定" } });
+    expect(videoBasePrompt).toHaveValue("单个精灵，镜头锁定");
 
-    const actionPrompt = screen.getByLabelText(/Action Prompt/i);
-    fireEvent.change(actionPrompt, { target: { value: "running forward in place" } });
-    expect(actionPrompt).toHaveValue("running forward in place");
+    const templatePrompt = screen.getByLabelText(/模板提示词/i);
+    fireEvent.change(templatePrompt, { target: { value: "正面奔跑循环" } });
+    expect(templatePrompt).toHaveValue("正面奔跑循环");
 
-    const finalVideoPrompt = screen.getByLabelText(/Final Video Prompt/i);
-    fireEvent.change(finalVideoPrompt, { target: { value: "final custom seedance prompt" } });
-    expect(finalVideoPrompt).toHaveValue("final custom seedance prompt");
+    const actionPrompt = screen.getByLabelText(/动作提示词/i);
+    fireEvent.change(actionPrompt, { target: { value: "原地向前奔跑" } });
+    expect(actionPrompt).toHaveValue("原地向前奔跑");
+
+    fireEvent.change(finalVideoPrompt, { target: { value: "最终自定义 seedance 奔跑提示词" } });
+    expect(finalVideoPrompt).toHaveValue("最终自定义 seedance 奔跑提示词");
   });
 });

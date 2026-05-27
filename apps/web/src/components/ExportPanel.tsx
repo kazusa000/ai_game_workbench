@@ -20,13 +20,13 @@ const targetSizes: TargetSize[] = [64, 128, 256, 512, 1024];
 export function ExportPanel(props: ExportPanelProps) {
   return (
     <section className="panel">
-      <div className="panel-title">Export Keys</div>
+      <div className="panel-title">导出设置</div>
       <label className="field">
-        Asset Key
+        资产标识
         <input value={props.assetKey} onChange={(event) => props.onAssetKeyChange(event.target.value)} />
       </label>
       <label className="field">
-        Animation Key
+        动画标识
         <input value={props.animationKey} onChange={(event) => props.onAnimationKeyChange(event.target.value)} />
       </label>
       <div className="field-row">
@@ -41,7 +41,7 @@ export function ExportPanel(props: ExportPanelProps) {
           />
         </label>
         <label className="field">
-          Target Size
+          目标尺寸
           <select
             value={props.targetSize}
             onChange={(event) => props.onTargetSizeChange(Number(event.target.value) as TargetSize)}
@@ -54,7 +54,7 @@ export function ExportPanel(props: ExportPanelProps) {
       </div>
       <label className="toggle-line">
         <input type="checkbox" checked={props.loop} onChange={(event) => props.onLoopChange(event.target.checked)} />
-        Loop playback
+        循环播放
       </label>
       <div className="export-name">{props.exportNames.sheetName}</div>
     </section>

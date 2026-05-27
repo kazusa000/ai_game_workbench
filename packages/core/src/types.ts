@@ -11,10 +11,10 @@ export const CHARACTER_DIRECTIONS: readonly CharacterDirection[] = [
 ];
 
 export const CHARACTER_DIRECTION_LABELS: Record<CharacterDirection, string> = {
-  front: "front-facing",
-  back: "back-facing",
-  left: "left-facing side view",
-  right: "right-facing side view"
+  front: "正面",
+  back: "背面",
+  left: "左侧面",
+  right: "右侧面"
 };
 
 export interface SavedAnimationKeys {

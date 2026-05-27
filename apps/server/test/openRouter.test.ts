@@ -11,6 +11,8 @@ describe("buildImageGenerationPayload", () => {
       prompt: "blue armored heroine",
       targetSize: 256,
       keyColor: "#00ff00",
+      direction: "front",
+      referenceImageDataUrl: "data:image/webp;base64,abc123",
       seed: 123
     });
 
@@ -20,9 +22,21 @@ describe("buildImageGenerationPayload", () => {
       aspect_ratio: "1:1",
       image_size: "1K"
     });
-    expect(payload.messages[0]?.content).toContain("blue armored heroine");
-    expect(payload.messages[0]?.content).toContain("256x256");
-    expect(payload.messages[0]?.content).toContain("solid #00ff00 background");
+    expect(payload.messages[0]?.content).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: expect.stringContaining("blue armored heroine")
+      }),
+      expect.objectContaining({
+        type: "image_url",
+        imageUrl: {
+          url: "data:image/webp;base64,abc123"
+        }
+      })
+    ]);
+    expect(payload.messages[0]?.content[0]?.text).toContain("256x256");
+    expect(payload.messages[0]?.content[0]?.text).toContain("front-facing");
+    expect(payload.messages[0]?.content[0]?.text).toContain("solid #00ff00 background");
     expect(payload.seed).toBe(123);
   });
 });

@@ -1,10 +1,16 @@
-import type { TargetSize } from "@ai-game-workbench/core";
+import {
+  CHARACTER_DIRECTION_LABELS,
+  type CharacterDirection,
+  type TargetSize
+} from "@ai-game-workbench/core";
 
 export interface BuildImageGenerationPayloadInput {
   model: string;
   prompt: string;
   targetSize: TargetSize;
   keyColor: string;
+  direction: CharacterDirection;
+  referenceImageDataUrl?: string;
   seed?: number;
 }
 
@@ -22,14 +28,27 @@ export interface OpenRouterClientOptions {
 }
 
 export function buildImageGenerationPayload(input: BuildImageGenerationPayloadInput) {
-  const content = [
+  const text = [
     "Generate a square pixel-art first frame for a 2D game sprite animation.",
     `Character: ${input.prompt}`,
     `Canvas: ${input.targetSize}x${input.targetSize}`,
+    `View direction: ${CHARACTER_DIRECTION_LABELS[input.direction]}`,
     "single full-body character, centered, clean silhouette",
     `solid ${input.keyColor} background`,
-    "no shadow, no ground, no particles, no text, no UI"
+    "no shadow, no ground, no particles, no text, no UI",
+    "If a reference image is provided, preserve the character identity, outfit colors, and major silhouette while converting it into square pixel art."
   ].join(" ");
+  const content = input.referenceImageDataUrl
+    ? [
+        { type: "text" as const, text },
+        {
+          type: "image_url" as const,
+          imageUrl: {
+            url: input.referenceImageDataUrl
+          }
+        }
+      ]
+    : text;
 
   return {
     model: input.model,

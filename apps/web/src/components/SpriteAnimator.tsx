@@ -372,9 +372,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         tolerance
       });
+      const frameVersion = Date.now().toString(36);
       const nextFrames = result.frames.map((frame) => ({
         index: frame.index,
-        url: toAbsoluteApiUrl(frame.url),
+        url: appendCacheBust(toAbsoluteApiUrl(frame.url), `${frameVersion}-${frame.index}`),
         hidden: false
       }));
       setFrames(nextFrames);
@@ -1202,4 +1203,8 @@ function isPublicHttpsUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function appendCacheBust(url: string, version: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`;
 }

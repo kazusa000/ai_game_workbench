@@ -158,6 +158,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /处理视频帧/i }));
 
     await screen.findByAltText("第 1 帧");
+    expect(screen.getByAltText("第 1 帧")).toHaveAttribute(
+      "src",
+      expect.stringMatching(/frame_001\.png\?v=/)
+    );
     expect(screen.getByLabelText("帧时间轴")).toBeInTheDocument();
     expect(screen.getByText("当前帧：1 / 3")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /选择第 .* 帧/ })).toHaveLength(3);

@@ -96,15 +96,15 @@ function isKeyColorPixel(
   key: { r: number; g: number; b: number },
   tolerance: number
 ): boolean {
+  if (isGreenScreenKey(key)) {
+    return isGreenScreenPixel(pixel, tolerance);
+  }
   const distance = Math.max(
     Math.abs(pixel.r - key.r),
     Math.abs(pixel.g - key.g),
     Math.abs(pixel.b - key.b)
   );
-  if (distance <= tolerance) {
-    return true;
-  }
-  return isGreenScreenKey(key) && isGreenScreenPixel(pixel, tolerance);
+  return distance <= tolerance;
 }
 
 function isGreenScreenKey(key: { r: number; g: number; b: number }): boolean {
@@ -112,6 +112,9 @@ function isGreenScreenKey(key: { r: number; g: number; b: number }): boolean {
 }
 
 function isGreenScreenPixel(pixel: { r: number; g: number; b: number }, tolerance: number): boolean {
+  const strength = Math.max(0, Math.min(255, tolerance)) / 255;
+  const minGreen = 220 - (strength * 150);
+  const minDominance = 120 - (strength * 108);
   const dominance = pixel.g - Math.max(pixel.r, pixel.b);
-  return pixel.g >= 96 && dominance >= Math.max(24, tolerance * 3);
+  return pixel.g >= minGreen && dominance >= minDominance;
 }

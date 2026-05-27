@@ -32,10 +32,10 @@ describe("applyColorKeyToBuffer", () => {
     expect([...output]).toEqual([0, 255, 0, 0, 255, 0, 0, 255]);
   });
 
-  it("turns noisy green-screen pixels transparent without hiding non-green pixels", async () => {
+  it("turns strong green-screen pixels transparent without hiding non-green pixels", async () => {
     const input = await sharp({
       create: {
-        width: 3,
+        width: 2,
         height: 1,
         channels: 4,
         background: { r: 0, g: 0, b: 0, alpha: 0 }
@@ -45,12 +45,11 @@ describe("applyColorKeyToBuffer", () => {
       .toBuffer();
     input.set([
       12, 228, 28, 255,
-      18, 189, 19, 255,
       236, 230, 215, 255
     ]);
 
     const png = await sharp(input, {
-      raw: { width: 3, height: 1, channels: 4 }
+      raw: { width: 2, height: 1, channels: 4 }
     })
       .png()
       .toBuffer();
@@ -60,9 +59,34 @@ describe("applyColorKeyToBuffer", () => {
 
     expect([...output]).toEqual([
       12, 228, 28, 0,
-      18, 189, 19, 0,
       236, 230, 215, 255
     ]);
+  });
+
+  it("uses higher tolerance to remove weaker green spill while keeping neutral light pixels", async () => {
+    const input = await sharp({
+      create: {
+        width: 2,
+        height: 1,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    })
+      .raw()
+      .toBuffer();
+    input.set([70, 150, 75, 255, 236, 230, 215, 255]);
+
+    const png = await sharp(input, {
+      raw: { width: 2, height: 1, channels: 4 }
+    })
+      .png()
+      .toBuffer();
+
+    const strict = await sharp(await applyColorKeyToBuffer(png, "#00ff00", 0)).raw().toBuffer();
+    const loose = await sharp(await applyColorKeyToBuffer(png, "#00ff00", 180)).raw().toBuffer();
+
+    expect([...strict]).toEqual([70, 150, 75, 255, 236, 230, 215, 255]);
+    expect([...loose]).toEqual([70, 150, 75, 0, 236, 230, 215, 255]);
   });
 });
 

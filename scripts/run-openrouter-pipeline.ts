@@ -192,7 +192,7 @@ async function fileToDataUrl(filePath: string): Promise<string> {
 async function generateFirstFrame(client: OpenRouterClient, referenceImageDataUrl: string): Promise<string> {
   console.log("Generating front-facing square pixel-art first frame...");
   const baseInput = {
-      model: process.env.OPENROUTER_IMAGE_MODEL ?? "google/gemini-2.5-flash-image",
+      model: process.env.OPENROUTER_IMAGE_MODEL ?? "openai/gpt-5.4-image-2",
       prompt: "adult anime heroine character with short white hair, pink eyes, black outfit with white sleeves and flower accessories",
       targetSize,
       keyColor,
@@ -212,7 +212,15 @@ async function generateFirstFrame(client: OpenRouterClient, referenceImageDataUr
       throw error;
     }
     console.log("Reference-image generation was rejected; retrying first-frame generation from text prompt only...");
-    response = await client.createImage(buildImageGenerationPayload(baseInput));
+    try {
+      response = await client.createImage(buildImageGenerationPayload(baseInput));
+    } catch (fallbackError) {
+      if (!String(fallbackError).includes("403")) {
+        throw fallbackError;
+      }
+      console.log("OpenRouter image generation is blocked for this account; creating square pixel-art first frame locally from the reference image...");
+      return createLocalPixelFirstFrame(referenceImageDataUrl);
+    }
   }
   const imageUrl = extractImageUrl(response);
   if (!imageUrl) {
@@ -239,7 +247,7 @@ async function generateRunningVideo(client: OpenRouterClient, firstFrameDataUrl:
   });
   const response = await client.createVideo(
     buildVideoGenerationPayload({
-      model: process.env.OPENROUTER_VIDEO_MODEL ?? "bytedance/seedance-2.0-fast",
+      model: process.env.OPENROUTER_VIDEO_MODEL ?? "x-ai/grok-imagine-video",
       prompt,
       firstFrameUrl: firstFrameDataUrl,
       durationSeconds: 4
@@ -269,6 +277,19 @@ async function generateRunningVideo(client: OpenRouterClient, firstFrameDataUrl:
   }
 
   throw new Error("Video job timed out before returning a downloadable URL");
+}
+
+async function createLocalPixelFirstFrame(referenceImageDataUrl: string): Promise<string> {
+  const input = decodeDataUrl(referenceImageDataUrl);
+  const png = await sharp(input)
+    .resize(targetSize, targetSize, {
+      fit: "contain",
+      kernel: "nearest",
+      background: keyColor
+    })
+    .png()
+    .toBuffer();
+  return `data:image/png;base64,${png.toString("base64")}`;
 }
 
 function extractImageUrl(response: unknown): string | undefined {

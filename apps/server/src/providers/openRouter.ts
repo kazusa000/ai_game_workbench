@@ -1,13 +1,12 @@
 import {
   CHARACTER_DIRECTION_LABELS,
-  type CharacterDirection,
-  type TargetSize
+  type CharacterDirection
 } from "@ai-game-workbench/core";
 
 export interface BuildImageGenerationPayloadInput {
   model: string;
   prompt: string;
-  targetSize: TargetSize;
+  targetSize: number;
   keyColor: string;
   direction: CharacterDirection;
   referenceImageDataUrl?: string;

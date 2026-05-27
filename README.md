@@ -8,7 +8,8 @@ AI-assisted game creation workbench. The first module is `AI Sprite Animator`, a
 
 - upload/generate first-frame entry points
 - first-frame direction selector: front, back, left, right
-- animation prompt controls
+- editable image and animation prompt controls
+- custom first-frame generation size from 64 to 1024 pixels
 - saved web UI keys: asset key, animation key, FPS, target size, loop
 - OpenRouter provider payload builders
 - local project state storage

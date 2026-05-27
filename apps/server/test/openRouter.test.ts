@@ -9,7 +9,7 @@ describe("buildImageGenerationPayload", () => {
     const payload = buildImageGenerationPayload({
       model: "google/gemini-3.1-flash-image-preview",
       prompt: "blue armored heroine",
-      targetSize: 256,
+      targetSize: 768,
       keyColor: "#00ff00",
       direction: "front",
       referenceImageDataUrl: "data:image/webp;base64,abc123",
@@ -34,7 +34,7 @@ describe("buildImageGenerationPayload", () => {
         }
       })
     ]);
-    expect(payload.messages[0]?.content[0]?.text).toContain("256x256");
+    expect(payload.messages[0]?.content[0]?.text).toContain("768x768");
     expect(payload.messages[0]?.content[0]?.text).toContain("front-facing");
     expect(payload.messages[0]?.content[0]?.text).toContain("solid #00ff00 background");
     expect(payload.seed).toBe(123);

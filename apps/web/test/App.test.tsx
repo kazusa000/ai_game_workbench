@@ -1,11 +1,25 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+
+beforeEach(() => {
+  vi.stubGlobal("URL", {
+    createObjectURL: vi.fn(() => "blob:first-frame-preview"),
+    revokeObjectURL: vi.fn()
+  });
+});
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
+  vi.unstubAllGlobals();
 });
+
+function openSpriteAnimator() {
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: /AI 精灵动画生成/i }));
+}
 
 describe("App", () => {
   it("opens the AI sprite animator module from the Chinese workbench hub", () => {
@@ -16,16 +30,29 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /AI 精灵动画生成/i }));
 
     expect(screen.getByRole("heading", { name: /AI 精灵动画生成/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /上传首帧/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /生成首帧/i })).toBeInTheDocument();
+    expect(screen.getByText("首帧预览")).toBeInTheDocument();
+    expect(screen.getByText("视频预览")).toBeInTheDocument();
+    expect(screen.getByText("导出预览")).toBeInTheDocument();
     expect(screen.getByLabelText(/朝向/i)).toHaveValue("front");
     expect(screen.getByLabelText(/资产标识/i)).toHaveValue("hero_mecha");
     expect(screen.getByLabelText(/动画标识/i)).toHaveValue("idle");
   });
 
+  it("uploads an image and shows it in the first-frame preview", () => {
+    openSpriteAnimator();
+
+    const file = new File(["fake-image"], "hero-front.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("上传首帧文件"), {
+      target: { files: [file] }
+    });
+
+    expect(screen.getByAltText("首帧预览")).toHaveAttribute("src", "blob:first-frame-preview");
+    expect(screen.getAllByText("hero-front.png").length).toBeGreaterThan(0);
+    expect(screen.getByText(/已载入首帧/)).toBeInTheDocument();
+  });
+
   it("exposes Chinese generation prompts and custom image size as editable controls", () => {
-    render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /AI 精灵动画生成/i }));
+    openSpriteAnimator();
 
     const imagePrompt = screen.getByLabelText(/^图片提示词$/i);
     expect((imagePrompt as HTMLTextAreaElement).value).toContain("像素");
@@ -42,6 +69,7 @@ describe("App", () => {
 
     const finalImagePrompt = screen.getByLabelText(/最终图片提示词/i);
     expect((finalImagePrompt as HTMLTextAreaElement).value).toContain("画布");
+    expect((finalImagePrompt as HTMLTextAreaElement).value).toContain("正面像素骑士");
     fireEvent.change(finalImagePrompt, { target: { value: "最终自定义正方形像素角色提示词" } });
     expect(finalImagePrompt).toHaveValue("最终自定义正方形像素角色提示词");
 
@@ -62,5 +90,29 @@ describe("App", () => {
 
     fireEvent.change(finalVideoPrompt, { target: { value: "最终自定义 seedance 奔跑提示词" } });
     expect(finalVideoPrompt).toHaveValue("最终自定义 seedance 奔跑提示词");
+  });
+
+  it("saves prompts and keys, then restores them when the module is reopened", () => {
+    openSpriteAnimator();
+
+    fireEvent.change(screen.getByLabelText(/^图片提示词$/i), {
+      target: { value: "已保存的像素角色提示词" }
+    });
+    fireEvent.change(screen.getByLabelText(/最终视频提示词/i), {
+      target: { value: "已保存的最终视频提示词" }
+    });
+    fireEvent.change(screen.getByLabelText(/资产标识/i), {
+      target: { value: "saved_hero" }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /保存当前配置/i }));
+    expect(screen.getByText(/配置已覆盖保存/)).toBeInTheDocument();
+
+    cleanup();
+    openSpriteAnimator();
+
+    expect(screen.getByLabelText(/^图片提示词$/i)).toHaveValue("已保存的像素角色提示词");
+    expect(screen.getByLabelText(/最终视频提示词/i)).toHaveValue("已保存的最终视频提示词");
+    expect(screen.getByLabelText(/资产标识/i)).toHaveValue("saved_hero");
   });
 });

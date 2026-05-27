@@ -174,8 +174,9 @@ h1 {
 
 .stage-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 410px;
-  gap: 16px;
+  grid-template-columns: minmax(420px, 1fr) minmax(360px, 430px);
+  gap: 18px;
+  align-items: start;
 }
 
 .preview-panel, .panel, .timeline-panel, .status-log {
@@ -187,18 +188,84 @@ h1 {
 
 .preview-panel {
   padding: 14px;
-  min-height: 560px;
+  min-height: 0;
+  position: sticky;
+  top: 16px;
 }
 
-.preview-box {
-  min-height: 430px;
+.preview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, .85fr);
+  gap: 12px;
+}
+
+.preview-slot {
+  min-width: 0;
+  border: 1px solid #384255;
+  border-radius: 8px;
+  background: #10151d;
+  overflow: hidden;
+}
+
+.preview-slot:first-child {
+  grid-row: span 2;
+}
+
+.preview-slot-header {
+  min-height: 42px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #30394a;
+}
+
+.preview-slot-header span {
+  flex: 0 0 auto;
+  color: #f6c453;
+  font-weight: 800;
+}
+
+.preview-slot-header small {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #9dacbd;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-stage {
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 12px;
+  background:
+    linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255,255,255,.05) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.05) 75%),
+    #0d1219;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.preview-stage img,
+.preview-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.preview-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
   color: #8da1b7;
-  border: 2px dashed #414a5d;
-  background: #10151d;
+  text-align: center;
+  padding: 14px;
 }
 
 .right-stack {
@@ -256,6 +323,22 @@ h1 {
   gap: 8px;
   color: #c7d0dd;
   margin-bottom: 10px;
+}
+
+.file-action {
+  cursor: pointer;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .timeline-panel {
@@ -324,6 +407,10 @@ h1 {
   .stage-grid {
     grid-template-columns: 1fr;
   }
+
+  .preview-panel {
+    position: static;
+  }
 }
 
 @media (max-width: 620px) {
@@ -338,5 +425,13 @@ h1 {
 
   .frame-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-slot:first-child {
+    grid-row: auto;
   }
 }

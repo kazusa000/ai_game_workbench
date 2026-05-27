@@ -14,6 +14,7 @@ interface FirstFramePanelProps {
   imagePrompt: string;
   imagePromptInstructions: string;
   finalImagePrompt: string;
+  onFirstFrameUpload: (file: File) => void;
   onImageGenerationSizeChange: (size: number) => void;
   onDirectionChange: (direction: CharacterDirection) => void;
   onImagePromptChange: (prompt: string) => void;
@@ -30,6 +31,7 @@ export function FirstFramePanel({
   imagePrompt,
   imagePromptInstructions,
   finalImagePrompt,
+  onFirstFrameUpload,
   onImageGenerationSizeChange,
   onDirectionChange,
   onImagePromptChange,
@@ -41,10 +43,26 @@ export function FirstFramePanel({
     <section className="panel">
       <div className="panel-title">首帧</div>
       <div className="two-actions">
-        <button className="tool-button" type="button" onClick={() => onStatus("请选择一张正方形像素风 PNG 首帧。")}>
+        <label className="tool-button file-action">
           <Upload size={16} /> 上传首帧
-        </button>
-        <button className="tool-button" type="button" onClick={() => onStatus("通过 OpenRouter 生成正方形像素风首帧。")}>
+          <input
+            aria-label="上传首帧文件"
+            className="visually-hidden"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) {
+                onFirstFrameUpload(file);
+              }
+            }}
+          />
+        </label>
+        <button
+          className="tool-button"
+          type="button"
+          onClick={() => onStatus("图片生成入口已准备，生成结果会显示到首帧预览。")}
+        >
           <ImagePlus size={16} /> 生成首帧
         </button>
       </div>

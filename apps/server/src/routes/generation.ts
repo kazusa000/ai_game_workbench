@@ -72,7 +72,7 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     const client = new OpenRouterClient({ apiKey });
     try {
       const providerResponse = await client.getVideoJob(jobId);
-      return await storeVideoJobStatus(jobId, providerResponse, config);
+      return await storeVideoJobStatus(jobId, providerResponse, config, apiKey);
     } catch (error: unknown) {
       return sendGenerationError(error, reply);
     }
@@ -112,7 +112,8 @@ async function storeGeneratedFirstFrame(
 async function storeVideoJobStatus(
   jobId: string,
   providerResponse: unknown,
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "storageDir">,
+  apiKey: string
 ) {
   const jobDir = join(config.storageDir, "jobs", jobId);
   await mkdir(jobDir, { recursive: true });
@@ -122,7 +123,7 @@ async function storeVideoJobStatus(
   if (status === "completed" && videoUrl) {
     const localPath = join(jobDir, "source.mp4");
     if (!existsSync(localPath)) {
-      await downloadToFile(videoUrl, localPath);
+      await downloadToFile(videoUrl, localPath, apiKey);
     }
     localVideoUrl = `/jobs/${jobId}/source.mp4`;
   }
@@ -266,6 +267,10 @@ function extractVideoUrl(response: unknown): string | undefined {
   if (Array.isArray(output)) {
     return output.find((item): item is string => typeof item === "string" && item.startsWith("http"));
   }
+  const unsignedUrls = record.unsigned_urls;
+  if (Array.isArray(unsignedUrls)) {
+    return unsignedUrls.find((item): item is string => typeof item === "string" && item.startsWith("http"));
+  }
   return undefined;
 }
 
@@ -332,12 +337,28 @@ function extensionFromContentType(contentType: string): "png" | "jpg" | "webp" {
   return "png";
 }
 
-async function downloadToFile(url: string, localPath: string): Promise<void> {
-  const response = await fetch(url);
+async function downloadToFile(url: string, localPath: string, apiKey: string): Promise<void> {
+  const response = await fetch(url, {
+    headers: buildVideoDownloadHeaders(url, apiKey)
+  });
   if (!response.ok) {
     throw new Error(`下载视频失败：${response.status}`);
   }
   await writeFile(localPath, Buffer.from(await response.arrayBuffer()));
+}
+
+function buildVideoDownloadHeaders(url: string, apiKey: string): HeadersInit | undefined {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "openrouter.ai" || parsed.hostname.endsWith(".openrouter.ai")) {
+      return {
+        Authorization: `Bearer ${apiKey}`
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function isLocalOrPrivateHost(hostname: string): boolean {

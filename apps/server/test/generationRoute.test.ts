@@ -265,4 +265,57 @@ describe("generation route", () => {
 
     await app.close();
   });
+
+  it("downloads completed OpenRouter video content from unsigned_urls with authorization", async () => {
+    const storageDir = makeStorageDir();
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "https://openrouter.ai/api/v1/videos/video_job_unsigned/content?index=0") {
+        expect(init?.headers).toMatchObject({
+          Authorization: "Bearer sk-or-v1-web-key"
+        });
+        return new Response(new Uint8Array([5, 6, 7, 8]), {
+          status: 200,
+          headers: {
+            "content-type": "video/mp4"
+          }
+        });
+      }
+      if (url.includes("/videos/video_job_unsigned")) {
+        return Response.json({
+          id: "video_job_unsigned",
+          status: "completed",
+          unsigned_urls: [
+            "https://openrouter.ai/api/v1/videos/video_job_unsigned/content?index=0"
+          ]
+        });
+      }
+      return Response.json({ error: "unexpected fetch" }, { status: 500 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/generation/video/video_job_unsigned",
+      headers: {
+        "x-openrouter-api-key": "sk-or-v1-web-key"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      jobId: "video_job_unsigned",
+      status: "completed",
+      videoUrl: "https://openrouter.ai/api/v1/videos/video_job_unsigned/content?index=0",
+      localVideoUrl: "/jobs/video_job_unsigned/source.mp4"
+    });
+    expect([...readFileSync(join(storageDir, "jobs", "video_job_unsigned", "source.mp4"))]).toEqual([5, 6, 7, 8]);
+
+    await app.close();
+  });
 });

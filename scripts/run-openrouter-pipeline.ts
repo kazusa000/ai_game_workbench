@@ -24,92 +24,149 @@ const fps = 12;
 const targetSize = 256;
 
 async function main() {
-  const apiKey = await loadApiKey();
-  const referenceImagePath = await findReferenceImage();
-  const referenceImageDataUrl = await fileToDataUrl(referenceImagePath);
+  const keyContext = await loadInferenceApiKey();
+  try {
+    const referenceImagePath = await findReferenceImage();
+    const referenceImageDataUrl = await fileToDataUrl(referenceImagePath);
 
-  await mkdir(outputDir, { recursive: true });
-  console.log(`Output: ${outputDir}`);
+    await mkdir(outputDir, { recursive: true });
+    console.log(`Output: ${outputDir}`);
 
-  const client = new OpenRouterClient({ apiKey });
-  const firstFrameDataUrl = await generateFirstFrame(client, referenceImageDataUrl);
-  const firstFramePath = join(outputDir, "first_frame_front_pixel.png");
-  await writeFile(firstFramePath, decodeDataUrl(firstFrameDataUrl));
-  console.log(`First frame: ${firstFramePath}`);
+    const client = new OpenRouterClient({ apiKey: keyContext.apiKey });
+    const firstFrameDataUrl = await generateFirstFrame(client, referenceImageDataUrl);
+    const firstFramePath = join(outputDir, "first_frame_front_pixel.png");
+    await writeFile(firstFramePath, decodeDataUrl(firstFrameDataUrl));
+    console.log(`First frame: ${firstFramePath}`);
 
-  const videoUrl = await generateRunningVideo(client, firstFrameDataUrl);
-  const videoPath = join(outputDir, "running_front_video.mp4");
-  await downloadToFile(videoUrl, videoPath);
-  console.log(`Video: ${videoPath}`);
+    const videoUrl = await generateRunningVideo(client, firstFrameDataUrl);
+    const videoPath = join(outputDir, "running_front_video.mp4");
+    await downloadToFile(videoUrl, videoPath);
+    console.log(`Video: ${videoPath}`);
 
-  const rawFramesDir = join(outputDir, "frames", "raw");
-  const transparentFramesDir = join(outputDir, "frames", "transparent");
-  const resizedFramesDir = join(outputDir, "frames", "resized");
-  const exportsDir = join(outputDir, "exports");
-  await mkdir(rawFramesDir, { recursive: true });
-  await mkdir(transparentFramesDir, { recursive: true });
-  await mkdir(resizedFramesDir, { recursive: true });
-  await mkdir(exportsDir, { recursive: true });
+    const rawFramesDir = join(outputDir, "frames", "raw");
+    const transparentFramesDir = join(outputDir, "frames", "transparent");
+    const resizedFramesDir = join(outputDir, "frames", "resized");
+    const exportsDir = join(outputDir, "exports");
+    await mkdir(rawFramesDir, { recursive: true });
+    await mkdir(transparentFramesDir, { recursive: true });
+    await mkdir(resizedFramesDir, { recursive: true });
+    await mkdir(exportsDir, { recursive: true });
 
-  const rawPattern = join(rawFramesDir, "frame_%03d.png");
-  await runFfmpeg(buildExtractFramesArgs({ inputPath: videoPath, outputPattern: rawPattern, fps }));
+    const rawPattern = join(rawFramesDir, "frame_%03d.png");
+    await runFfmpeg(buildExtractFramesArgs({ inputPath: videoPath, outputPattern: rawPattern, fps }));
 
-  const rawFrameNames = (await readdir(rawFramesDir))
-    .filter((name) => name.endsWith(".png"))
-    .sort();
-  if (rawFrameNames.length === 0) {
-    throw new Error("No frames were extracted from the generated video");
+    const rawFrameNames = (await readdir(rawFramesDir))
+      .filter((name) => name.endsWith(".png"))
+      .sort();
+    if (rawFrameNames.length === 0) {
+      throw new Error("No frames were extracted from the generated video");
+    }
+
+    const resizedBuffers: Buffer[] = [];
+    for (const frameName of rawFrameNames) {
+      const rawPath = join(rawFramesDir, frameName);
+      const transparentPath = join(transparentFramesDir, frameName);
+      const resizedPath = join(resizedFramesDir, frameName);
+      const raw = await readFile(rawPath);
+      const transparent = await applyColorKeyToBuffer(raw, keyColor, 72);
+      const resized = await resizeNearestBuffer(transparent, targetSize);
+      await writeFile(transparentPath, transparent);
+      await writeFile(resizedPath, resized);
+      resizedBuffers.push(resized);
+    }
+
+    const spriteSheet = await buildSpriteSheetFromBuffers(resizedBuffers, {
+      frameWidth: targetSize,
+      frameHeight: targetSize
+    });
+    const sheetPath = join(exportsDir, "test_character_run_front_sheet.png");
+    await writeFile(sheetPath, spriteSheet);
+
+    const gifPath = join(exportsDir, "test_character_run_front_preview.gif");
+    await runFfmpeg([
+      "-y",
+      "-framerate",
+      String(fps),
+      "-i",
+      join(resizedFramesDir, "frame_%03d.png"),
+      "-loop",
+      "0",
+      gifPath
+    ]);
+
+    const sheetMeta = await sharp(sheetPath).metadata();
+    console.log(`Frames: ${rawFrameNames.length}`);
+    console.log(`Sprite sheet: ${sheetPath} (${sheetMeta.width}x${sheetMeta.height})`);
+    console.log(`Preview GIF: ${gifPath}`);
+  } finally {
+    await keyContext.cleanup?.();
   }
-
-  const resizedBuffers: Buffer[] = [];
-  for (const frameName of rawFrameNames) {
-    const rawPath = join(rawFramesDir, frameName);
-    const transparentPath = join(transparentFramesDir, frameName);
-    const resizedPath = join(resizedFramesDir, frameName);
-    const raw = await readFile(rawPath);
-    const transparent = await applyColorKeyToBuffer(raw, keyColor, 72);
-    const resized = await resizeNearestBuffer(transparent, targetSize);
-    await writeFile(transparentPath, transparent);
-    await writeFile(resizedPath, resized);
-    resizedBuffers.push(resized);
-  }
-
-  const spriteSheet = await buildSpriteSheetFromBuffers(resizedBuffers, {
-    frameWidth: targetSize,
-    frameHeight: targetSize
-  });
-  const sheetPath = join(exportsDir, "test_character_run_front_sheet.png");
-  await writeFile(sheetPath, spriteSheet);
-
-  const gifPath = join(exportsDir, "test_character_run_front_preview.gif");
-  await runFfmpeg([
-    "-y",
-    "-framerate",
-    String(fps),
-    "-i",
-    join(resizedFramesDir, "frame_%03d.png"),
-    "-loop",
-    "0",
-    gifPath
-  ]);
-
-  const sheetMeta = await sharp(sheetPath).metadata();
-  console.log(`Frames: ${rawFrameNames.length}`);
-  console.log(`Sprite sheet: ${sheetPath} (${sheetMeta.width}x${sheetMeta.height})`);
-  console.log(`Preview GIF: ${gifPath}`);
 }
 
-async function loadApiKey(): Promise<string> {
+interface KeyContext {
+  apiKey: string;
+  cleanup?: () => Promise<void>;
+}
+
+async function loadInferenceApiKey(): Promise<KeyContext> {
   const envKey = process.env.OPENROUTER_API_KEY?.trim();
-  if (envKey) {
-    return envKey;
-  }
   const keyPath = join(testDir, "Openrouter_api.txt");
-  const key = (await readFile(keyPath, "utf8")).trim();
+  const key = envKey || (await readFile(keyPath, "utf8")).trim();
   if (!key) {
     throw new Error("OpenRouter API key is empty");
   }
-  return key;
+  return provisionInferenceKeyIfNeeded(key);
+}
+
+async function provisionInferenceKeyIfNeeded(key: string): Promise<KeyContext> {
+  const authResponse = await fetch("https://openrouter.ai/api/v1/auth/key", {
+    headers: { Authorization: `Bearer ${key}` }
+  });
+  if (!authResponse.ok) {
+    throw new Error(`OpenRouter key validation failed: ${authResponse.status}`);
+  }
+  const auth = (await authResponse.json()) as any;
+  if (!auth?.data?.is_provisioning_key) {
+    return { apiKey: key };
+  }
+
+  console.log("Provisioning key detected; creating temporary limited inference key...");
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const createResponse = await fetch("https://openrouter.ai/api/v1/keys", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: `ai-game-workbench-e2e-${Date.now()}`,
+      limit: 3,
+      expires_at: expiresAt,
+      include_byok_in_limit: false
+    })
+  });
+  const created = (await createResponse.json()) as any;
+  if (!createResponse.ok || !created?.key || !created?.data?.hash) {
+    throw new Error(`Failed to create temporary OpenRouter inference key: ${JSON.stringify(created).slice(0, 500)}`);
+  }
+
+  return {
+    apiKey: created.key,
+    cleanup: async () => {
+      const deleteResponse = await fetch(
+        `https://openrouter.ai/api/v1/keys/${encodeURIComponent(created.data.hash)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${key}` }
+        }
+      );
+      if (deleteResponse.ok) {
+        console.log("Temporary OpenRouter inference key deleted.");
+      } else {
+        console.warn(`Failed to delete temporary OpenRouter inference key: ${deleteResponse.status}`);
+      }
+    }
+  };
 }
 
 async function findReferenceImage(): Promise<string> {
@@ -134,17 +191,29 @@ async function fileToDataUrl(filePath: string): Promise<string> {
 
 async function generateFirstFrame(client: OpenRouterClient, referenceImageDataUrl: string): Promise<string> {
   console.log("Generating front-facing square pixel-art first frame...");
-  const response = await client.createImage(
-    buildImageGenerationPayload({
+  const baseInput = {
       model: process.env.OPENROUTER_IMAGE_MODEL ?? "google/gemini-2.5-flash-image",
-      prompt: "anime girl character with short white hair, pink eyes, black outfit with white sleeves and flower accessories",
+      prompt: "adult anime heroine character with short white hair, pink eyes, black outfit with white sleeves and flower accessories",
       targetSize,
       keyColor,
       direction: "front",
-      referenceImageDataUrl,
       seed: 270527
-    })
-  );
+  } as const;
+  let response: unknown;
+  try {
+    response = await client.createImage(
+      buildImageGenerationPayload({
+        ...baseInput,
+        referenceImageDataUrl
+      })
+    );
+  } catch (error) {
+    if (!String(error).includes("403")) {
+      throw error;
+    }
+    console.log("Reference-image generation was rejected; retrying first-frame generation from text prompt only...");
+    response = await client.createImage(buildImageGenerationPayload(baseInput));
+  }
   const imageUrl = extractImageUrl(response);
   if (!imageUrl) {
     throw new Error(`Image generation response did not include an image URL: ${JSON.stringify(response).slice(0, 500)}`);

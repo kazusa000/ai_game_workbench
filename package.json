@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w apps/server",
+    "dev:workbench": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-workbench.ps1",
     "dev:web": "npm run dev -w apps/web",
     "dev:server": "npm run dev -w apps/server",
     "build": "npm run build --workspaces --if-present",

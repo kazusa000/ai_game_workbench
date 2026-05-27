@@ -45,12 +45,20 @@ PORT=8787
 npm test
 npm run typecheck
 npm run build
+npm run dev:workbench
 npm run dev:server
 npm run dev:web
 ```
 
 Server: `http://127.0.0.1:8787`  
 Web: Vite prints its local URL when started.
+
+`npm run dev:workbench` starts or reuses the API server, Vite web server, and the configured ngrok tunnel together. By default it uses `https://darn-skittle-unwoven.ngrok-free.dev` as the public asset base for uploaded first-frame images. Override it when needed:
+
+```powershell
+$env:AI_GAME_WORKBENCH_PUBLIC_URL="https://your-domain.ngrok-free.dev"
+npm run dev:workbench
+```
 
 ## OpenRouter Key Note
 

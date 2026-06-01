@@ -6,7 +6,9 @@ import {
   alignIdleFourDirectionSheetToWalkBuffers,
   buildSpriteSheetFromBuffers,
   centerFrameSequenceBuffers,
+  createCharacterFrameProfileFromBuffer,
   findBestLoopSegment,
+  normalizeFourDirectionFrameSequencesToProfile,
   resizeNearestBuffer,
   splitAndCenterFourDirectionFrameBuffer,
   splitFourDirectionFrameBuffer
@@ -547,6 +549,106 @@ describe("alignIdleFourDirectionSheetToWalkBuffers", () => {
       width: 6,
       height: 12
     });
+  });
+});
+
+describe("normalizeFourDirectionFrameSequencesToProfile", () => {
+  it("scales every direction to the first-frame character profile", async () => {
+    const reference = await createTransparentFrame({
+      width: 32,
+      height: 32,
+      left: 12,
+      top: 8,
+      subjectWidth: 8,
+      subjectHeight: 16
+    });
+    const profile = await createCharacterFrameProfileFromBuffer(reference);
+    expect(profile).not.toBeNull();
+
+    const normalized = await normalizeFourDirectionFrameSequencesToProfile({
+      down: [reference],
+      up: [await createTransparentFrame({
+        width: 32,
+        height: 32,
+        left: 14,
+        top: 12,
+        subjectWidth: 4,
+        subjectHeight: 8
+      })],
+      left: [await createTransparentFrame({
+        width: 32,
+        height: 32,
+        left: 10,
+        top: 6,
+        subjectWidth: 12,
+        subjectHeight: 24
+      })],
+      right: [await createTransparentFrame({
+        width: 32,
+        height: 32,
+        left: 15,
+        top: 10,
+        subjectWidth: 6,
+        subjectHeight: 12
+      })]
+    }, profile);
+
+    for (const direction of ["down", "up", "left", "right"] as const) {
+      const output = await sharp(normalized[direction][0]).raw().toBuffer({ resolveWithObject: true });
+      const box = findAlphaBox(output.data, output.info.width, output.info.height);
+      expect(box).toMatchObject({
+        left: 12,
+        top: 8,
+        right: 19,
+        bottom: 23,
+        width: 8,
+        height: 16
+      });
+    }
+  });
+
+  it("uses each sequence first frame to choose one scale for later frames", async () => {
+    const profile = await createCharacterFrameProfileFromBuffer(await createTransparentFrame({
+      width: 64,
+      height: 64,
+      left: 24,
+      top: 24,
+      subjectWidth: 8,
+      subjectHeight: 16
+    }));
+    expect(profile).not.toBeNull();
+
+    const normalized = await normalizeFourDirectionFrameSequencesToProfile({
+      down: [
+        await createTransparentFrame({
+          width: 64,
+          height: 64,
+          left: 30,
+          top: 30,
+          subjectWidth: 4,
+          subjectHeight: 8
+        }),
+        await createTransparentFrame({
+          width: 64,
+          height: 64,
+          left: 28,
+          top: 24,
+          subjectWidth: 4,
+          subjectHeight: 12
+        })
+      ],
+      up: [],
+      left: [],
+      right: []
+    }, profile);
+
+    const first = await sharp(normalized.down[0]).raw().toBuffer({ resolveWithObject: true });
+    const second = await sharp(normalized.down[1]).raw().toBuffer({ resolveWithObject: true });
+    const firstBox = findAlphaBox(first.data, first.info.width, first.info.height);
+    const secondBox = findAlphaBox(second.data, second.info.width, second.info.height);
+
+    expect(firstBox).toMatchObject({ width: 8, height: 16 });
+    expect(secondBox).toMatchObject({ width: 8, height: 24 });
   });
 });
 

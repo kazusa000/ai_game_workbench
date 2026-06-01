@@ -121,6 +121,59 @@ describe("processing route", () => {
     await app.close();
   });
 
+  it("normalizes walk directions to the first walk frame profile", async () => {
+    const storageDir = makeStorageDir();
+    const ffmpegPath = resolveDefaultFfmpegPath();
+    const app = createApp({
+      ffmpegPath,
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+
+    const videoDir = join(storageDir, "characters", "hero", "base-character", "walk-video");
+    mkdirSync(videoDir, { recursive: true });
+    await createTestUnevenFourDirectionVideo(ffmpegPath, join(videoDir, "source.mp4"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/four-direction",
+      payload: {
+        jobId: "walk-profile-video",
+        characterId: "hero",
+        frameCount: 4,
+        keyColor: "#00ff00",
+        tolerance: 8,
+        minLoopFrames: 2,
+        maxLoopFrames: 4,
+        exportFrameSize: 256,
+        fps: 12
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const heights = await Promise.all(["down", "up", "left", "right"].map(async (direction) => {
+      const transparentDir = join(storageDir, "characters", "hero", "base-character", "loop-export", "transparent", direction);
+      const firstFile = readdirSync(transparentDir)
+        .filter((fileName) => fileName.endsWith(".png"))
+        .sort()[0];
+      expect(firstFile).toBeDefined();
+      return (await getAlphaBox(readFileSync(join(transparentDir, firstFile ?? ""))))?.height ?? 0;
+    }));
+    const referenceHeight = heights[0] ?? 0;
+    expect(referenceHeight).toBeGreaterThan(50);
+    for (const height of heights) {
+      expect(Math.abs(height - referenceHeight)).toBeLessThanOrEqual(2);
+    }
+
+    await app.close();
+  });
+
   it("requires walk loop export before idle four-direction processing", async () => {
     const storageDir = makeStorageDir();
     const app = createApp({
@@ -196,6 +249,45 @@ describe("processing route", () => {
     });
     expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "idle", "transparent", "down.png"))).toBe(true);
     expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "exports", "idle-4dir-sprite-sheet.png"))).toBe(true);
+
+    await app.close();
+  });
+
+  it("normalizes idle directions to the first walk frame profile instead of each direction box", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+
+    const templateDir = join(storageDir, "characters", "hero", "base-character", "direction-templates");
+    mkdirSync(templateDir, { recursive: true });
+    writeFileSync(join(templateDir, "idle-4dir.png"), await createTestIdleSheet());
+    await writeUnevenWalkTransparentReferences(storageDir, "hero");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/idle-four-direction",
+      payload: {
+        characterId: "hero",
+        keyColor: "#00ff00",
+        tolerance: 8
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const idleDir = join(storageDir, "characters", "hero", "base-character", "loop-export", "idle", "transparent");
+    await expect(getAlphaBox(readFileSync(join(idleDir, "down.png")))).resolves.toMatchObject({ height: 160 });
+    await expect(getAlphaBox(readFileSync(join(idleDir, "up.png")))).resolves.toMatchObject({ height: 160 });
+    await expect(getAlphaBox(readFileSync(join(idleDir, "left.png")))).resolves.toMatchObject({ height: 160 });
+    await expect(getAlphaBox(readFileSync(join(idleDir, "right.png")))).resolves.toMatchObject({ height: 160 });
 
     await app.close();
   });
@@ -608,6 +700,59 @@ describe("processing route", () => {
     await app.close();
   });
 
+  it("normalizes loop advanced actions to the first walk frame profile", async () => {
+    const storageDir = makeStorageDir();
+    const ffmpegPath = resolveDefaultFfmpegPath();
+    const app = createApp({
+      ffmpegPath,
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+    await writeWalkTransparentReferences(storageDir, "hero");
+
+    const videoDir = join(storageDir, "characters", "hero", "advanced-character", "run", "video");
+    mkdirSync(videoDir, { recursive: true });
+    await createTestFourDirectionGrowingActionVideo(ffmpegPath, join(videoDir, "source.mp4"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/advanced-action",
+      payload: {
+        jobId: "run_video_profile_job",
+        characterId: "hero",
+        actionKind: "run",
+        mode: "loop",
+        frameCount: 6,
+        keyColor: "#00ff00",
+        tolerance: 8,
+        minLoopFrames: 2,
+        maxLoopFrames: 6,
+        exportFrameSize: 256,
+        fps: 12
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    for (const direction of ["down", "up", "left", "right"]) {
+      const transparentDir = join(storageDir, "characters", "hero", "advanced-character", "run", "export", "transparent", direction);
+      const firstFile = readdirSync(transparentDir)
+        .filter((fileName) => fileName.endsWith(".png"))
+        .sort()[0];
+      expect(firstFile).toBeDefined();
+      const box = await getAlphaBox(readFileSync(join(transparentDir, firstFile ?? "")));
+      expect(box?.height).toBeGreaterThanOrEqual(150);
+      expect(box?.height).toBeLessThanOrEqual(170);
+    }
+
+    await app.close();
+  });
+
   it("exports one-shot actions at the requested square frame size", async () => {
     const storageDir = makeStorageDir();
     const ffmpegPath = resolveDefaultFfmpegPath();
@@ -759,6 +904,58 @@ async function createTestFourDirectionVideo(ffmpegPath: string, outputPath: stri
     "-movflags", "+faststart",
     outputPath
   ]);
+}
+
+async function createTestUnevenFourDirectionVideo(ffmpegPath: string, outputPath: string): Promise<void> {
+  const frameDir = mkdtempSync(join(tmpdir(), "ai-game-workbench-uneven-walk-video-"));
+  tempDirs.push(frameDir);
+  for (let frameIndex = 1; frameIndex <= 4; frameIndex += 1) {
+    writeFileSync(
+      join(frameDir, `frame_${String(frameIndex).padStart(3, "0")}.png`),
+      await createTestUnevenFourDirectionSheetFrame()
+    );
+  }
+  await runFfmpeg(ffmpegPath, [
+    "-y",
+    "-framerate", "12",
+    "-i", join(frameDir, "frame_%03d.png"),
+    "-vf", "format=yuv420p",
+    "-movflags", "+faststart",
+    outputPath
+  ]);
+}
+
+async function createTestUnevenFourDirectionSheetFrame(): Promise<Buffer> {
+  const cellSize = 64;
+  const blocks = [
+    { left: 26, top: 12, width: 12, height: 40, color: { r: 255, g: 0, b: 0, alpha: 1 } },
+    { left: 90, top: 22, width: 12, height: 20, color: { r: 0, g: 0, b: 255, alpha: 1 } },
+    { left: 26, top: 81, width: 12, height: 30, color: { r: 255, g: 255, b: 0, alpha: 1 } },
+    { left: 90, top: 84, width: 12, height: 24, color: { r: 0, g: 0, b: 0, alpha: 1 } }
+  ];
+
+  return sharp({
+    create: {
+      width: cellSize * 2,
+      height: cellSize * 2,
+      channels: 4,
+      background: { r: 0, g: 255, b: 0, alpha: 1 }
+    }
+  })
+    .composite(await Promise.all(blocks.map(async (block) => ({
+      input: await sharp({
+        create: {
+          width: block.width,
+          height: block.height,
+          channels: 4,
+          background: block.color
+        }
+      }).png().toBuffer(),
+      left: block.left,
+      top: block.top
+    }))))
+    .png()
+    .toBuffer();
 }
 
 async function createTestFourDirectionActionVideo(ffmpegPath: string, outputPath: string): Promise<void> {
@@ -1028,6 +1225,20 @@ async function writeWalkTransparentReferences(storageDir: string, characterId: s
     const directionDir = join(storageDir, "characters", characterId, "base-character", "loop-export", "transparent", direction);
     mkdirSync(directionDir, { recursive: true });
     writeFileSync(join(directionDir, "frame_001.png"), await createTransparentReferenceFrame());
+  }
+}
+
+async function writeUnevenWalkTransparentReferences(storageDir: string, characterId: string): Promise<void> {
+  const heights = {
+    down: 160,
+    up: 80,
+    left: 120,
+    right: 100
+  };
+  for (const [direction, subjectHeight] of Object.entries(heights)) {
+    const directionDir = join(storageDir, "characters", characterId, "base-character", "loop-export", "transparent", direction);
+    mkdirSync(directionDir, { recursive: true });
+    writeFileSync(join(directionDir, "frame_001.png"), await createTransparentReferenceFrame({ subjectHeight }));
   }
 }
 

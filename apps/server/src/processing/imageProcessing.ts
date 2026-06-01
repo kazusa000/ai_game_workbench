@@ -61,6 +61,11 @@ export interface SplitFourDirectionOptions {
 export interface AlignIdleFourDirectionOptions extends SpriteSheetOptions {
   keyColor: string;
   tolerance?: number;
+  profile?: CharacterFrameProfile | null;
+}
+
+export interface CharacterFrameProfile extends SpriteSheetOptions {
+  referenceBox: ForegroundBox;
 }
 
 type RgbColor = { r: number; g: number; b: number };
@@ -239,11 +244,53 @@ export async function alignIdleFourDirectionSheetToWalkBuffers(
   options: AlignIdleFourDirectionOptions
 ): Promise<FourDirectionBuffers> {
   const split = await splitFourDirectionFrameBuffer(idleSheet);
+  if (options.profile) {
+    const keyed: Record<FourDirectionKey, Buffer[]> = {
+      down: [await keyCleanAndPadIdleDirection(split.down, options)],
+      up: [await keyCleanAndPadIdleDirection(split.up, options)],
+      left: [await keyCleanAndPadIdleDirection(split.left, options)],
+      right: [await keyCleanAndPadIdleDirection(split.right, options)]
+    };
+    const normalized = await normalizeFourDirectionFrameSequencesToProfile(keyed, options.profile);
+    return {
+      down: normalized.down[0] ?? await createTransparentCanvas(options.frameWidth, options.frameHeight),
+      up: normalized.up[0] ?? await createTransparentCanvas(options.frameWidth, options.frameHeight),
+      left: normalized.left[0] ?? await createTransparentCanvas(options.frameWidth, options.frameHeight),
+      right: normalized.right[0] ?? await createTransparentCanvas(options.frameWidth, options.frameHeight)
+    };
+  }
   return {
     down: await alignIdleDirectionToWalkFrames(split.down, walkFrames.down, options),
     up: await alignIdleDirectionToWalkFrames(split.up, walkFrames.up, options),
     left: await alignIdleDirectionToWalkFrames(split.left, walkFrames.left, options),
     right: await alignIdleDirectionToWalkFrames(split.right, walkFrames.right, options)
+  };
+}
+
+export async function createCharacterFrameProfileFromBuffer(input: Buffer): Promise<CharacterFrameProfile | null> {
+  const image = sharp(input).ensureAlpha();
+  const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) {
+    throw new Error("Cannot create character frame profile without dimensions");
+  }
+  const raw = await image.raw().toBuffer();
+  const referenceBox = findAlphaForegroundBox(raw, metadata.width, metadata.height);
+  return referenceBox ? {
+    frameWidth: metadata.width,
+    frameHeight: metadata.height,
+    referenceBox
+  } : null;
+}
+
+export async function normalizeFourDirectionFrameSequencesToProfile(
+  directionFrames: Record<FourDirectionKey, readonly Buffer[]>,
+  profile: CharacterFrameProfile | null
+): Promise<Record<FourDirectionKey, Buffer[]>> {
+  return {
+    down: await normalizeFrameSequenceToProfile(directionFrames.down, profile),
+    up: await normalizeFrameSequenceToProfile(directionFrames.up, profile),
+    left: await normalizeFrameSequenceToProfile(directionFrames.left, profile),
+    right: await normalizeFrameSequenceToProfile(directionFrames.right, profile)
   };
 }
 
@@ -842,14 +889,175 @@ async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[]
   }
 }
 
+async function normalizeFrameSequenceToProfile(
+  buffers: readonly Buffer[],
+  profile: CharacterFrameProfile | null
+): Promise<Buffer[]> {
+  if (!profile || buffers.length === 0) {
+    return [...buffers];
+  }
+
+  const baselineBuffer = buffers[0];
+  if (!baselineBuffer) {
+    return [...buffers];
+  }
+  const baseline = await getAlphaFrameInfo(baselineBuffer);
+  if (!baseline) {
+    return [...buffers];
+  }
+  const referenceBox = scaleProfileBoxToFrame(profile, baseline.width, baseline.height);
+  const baselineHeight = getBoxHeight(baseline.box);
+  if (baselineHeight <= 0) {
+    return [...buffers];
+  }
+  const scale = clampScaleToFrame(
+    getBoxHeight(referenceBox) / baselineHeight,
+    baseline.box,
+    baseline.width,
+    baseline.height
+  );
+  const baselineCenter = getBoxCenter(baseline.box);
+  const referenceCenter = getBoxCenter(referenceBox);
+
+  return Promise.all(buffers.map(async (buffer) => {
+    const frame = await getAlphaFrameInfo(buffer);
+    if (!frame) {
+      return buffer;
+    }
+    const boxWidth = getBoxWidth(frame.box);
+    const boxHeight = getBoxHeight(frame.box);
+    const outputWidth = Math.max(1, Math.min(frame.width, Math.round(boxWidth * scale)));
+    const outputHeight = Math.max(1, Math.min(frame.height, Math.round(boxHeight * scale)));
+    const frameCenter = getBoxCenter(frame.box);
+    const targetCenterX = referenceCenter.x + ((frameCenter.x - baselineCenter.x) * scale);
+    const targetCenterY = referenceCenter.y + ((frameCenter.y - baselineCenter.y) * scale);
+    const left = clampInteger(Math.round(targetCenterX - (outputWidth / 2)), 0, Math.max(0, frame.width - outputWidth));
+    const top = clampInteger(Math.round(targetCenterY - (outputHeight / 2)), 0, Math.max(0, frame.height - outputHeight));
+    const subject = await sharp(buffer)
+      .extract({
+        left: frame.box.left,
+        top: frame.box.top,
+        width: boxWidth,
+        height: boxHeight
+      })
+      .resize(outputWidth, outputHeight, {
+        fit: "fill",
+        kernel: "nearest"
+      })
+      .png()
+      .toBuffer();
+    return sharp({
+      create: {
+        width: frame.width,
+        height: frame.height,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    })
+      .composite([{ input: subject, left, top }])
+      .png()
+      .toBuffer();
+  }));
+}
+
+async function getAlphaFrameInfo(buffer: Buffer): Promise<{ width: number; height: number; box: ForegroundBox } | null> {
+  const image = sharp(buffer).ensureAlpha();
+  const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) {
+    return null;
+  }
+  const raw = await image.raw().toBuffer();
+  const box = findAlphaForegroundBox(raw, metadata.width, metadata.height);
+  return box ? { width: metadata.width, height: metadata.height, box } : null;
+}
+
+function scaleProfileBoxToFrame(profile: CharacterFrameProfile, frameWidth: number, frameHeight: number): ForegroundBox {
+  const scaleX = frameWidth / profile.frameWidth;
+  const scaleY = frameHeight / profile.frameHeight;
+  return {
+    left: Math.round(profile.referenceBox.left * scaleX),
+    top: Math.round(profile.referenceBox.top * scaleY),
+    right: Math.round(((profile.referenceBox.right + 1) * scaleX) - 1),
+    bottom: Math.round(((profile.referenceBox.bottom + 1) * scaleY) - 1)
+  };
+}
+
+function clampScaleToFrame(scale: number, box: ForegroundBox, frameWidth: number, frameHeight: number): number {
+  const width = getBoxWidth(box);
+  const height = getBoxHeight(box);
+  const maxScale = Math.min(frameWidth / width, frameHeight / height);
+  return Math.max(0.05, Math.min(scale, maxScale));
+}
+
+function getBoxCenter(box: ForegroundBox): { x: number; y: number } {
+  return {
+    x: (box.left + box.right) / 2,
+    y: (box.top + box.bottom) / 2
+  };
+}
+
+async function keyAndCleanIdleDirection(
+  idleDirection: Buffer,
+  options: AlignIdleFourDirectionOptions
+): Promise<Buffer> {
+  return removeDetachedAlphaArtifacts(
+    await applySampledBackgroundKeyToBuffer(idleDirection, { tolerance: options.tolerance })
+  );
+}
+
+async function keyCleanAndPadIdleDirection(
+  idleDirection: Buffer,
+  options: AlignIdleFourDirectionOptions
+): Promise<Buffer> {
+  const keyed = await keyAndCleanIdleDirection(idleDirection, options);
+  const frame = await getAlphaFrameInfo(keyed);
+  if (!frame) {
+    return createTransparentCanvas(options.frameWidth, options.frameHeight);
+  }
+  const width = getBoxWidth(frame.box);
+  const height = getBoxHeight(frame.box);
+  const subject = await sharp(keyed)
+    .extract({
+      left: frame.box.left,
+      top: frame.box.top,
+      width,
+      height
+    })
+    .png()
+    .toBuffer();
+  const left = clampInteger(Math.round((options.frameWidth - width) / 2), 0, Math.max(0, options.frameWidth - width));
+  const top = clampInteger(Math.round((options.frameHeight - height) / 2), 0, Math.max(0, options.frameHeight - height));
+
+  return sharp({
+    create: {
+      width: options.frameWidth,
+      height: options.frameHeight,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    }
+  })
+    .composite([{ input: subject, left, top }])
+    .png()
+    .toBuffer();
+}
+
+async function createTransparentCanvas(width: number, height: number): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    }
+  }).png().toBuffer();
+}
+
 async function alignIdleDirectionToWalkFrames(
   idleDirection: Buffer,
   walkFrames: readonly Buffer[],
   options: AlignIdleFourDirectionOptions
 ): Promise<Buffer> {
-  const keyedIdle = await removeDetachedAlphaArtifacts(
-    await applySampledBackgroundKeyToBuffer(idleDirection, { tolerance: options.tolerance })
-  );
+  const keyedIdle = await keyAndCleanIdleDirection(idleDirection, options);
   const idleImage = sharp(keyedIdle).ensureAlpha();
   const idleMetadata = await idleImage.metadata();
   if (!idleMetadata.width || !idleMetadata.height) {

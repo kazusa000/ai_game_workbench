@@ -11,13 +11,15 @@ import {
   buildFourDirectionSpriteSheetFromBuffers,
   buildSpriteSheetFromBuffers,
   centerFrameSequenceBuffers,
+  createCharacterFrameProfileFromBuffer,
   createFrameSignatureBuffer,
   findBestLoopSegment,
+  normalizeFourDirectionFrameSequencesToProfile,
   removeDetachedAlphaArtifacts,
   resizeNearestBuffer,
   splitFourDirectionFrameBuffer
 } from "../processing/imageProcessing";
-import type { FourDirectionKey, LoopSegment } from "../processing/imageProcessing";
+import type { CharacterFrameProfile, FourDirectionKey, LoopSegment } from "../processing/imageProcessing";
 import {
   extractFramesWithFfmpeg,
   probeVideoDurationSeconds,
@@ -34,6 +36,14 @@ import {
 type ProcessingRouteConfig = Pick<AppConfig, "storageDir" | "ffmpegPath">;
 type AdvancedActionKind = "run" | "attack-1" | "jump";
 type AdvancedActionMode = "loop" | "oneshot";
+type PreparedTransparentFrame = {
+  frame: { index: number; url: string; path: string };
+  fileName: string;
+  loopPath: string;
+  transparentPath: string;
+  centered: Buffer;
+  transparent: Buffer;
+};
 
 export function registerProcessingRoutes(app: FastifyInstance, config: ProcessingRouteConfig): void {
   app.get("/api/processing/capabilities", async () => ({
@@ -238,13 +248,15 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       transparentFrames: { index: number; url: string }[];
       loop: LoopSegment;
     }[] = [];
-    const transparentBuffersByDirection: Record<FourDirectionKey, Buffer[]> = {
+    const transparentBuffersByDirection = createEmptyDirectionBuffers();
+    const transparentZipEntries: Record<string, Buffer> = {};
+    const preparedFramesByDirection: Record<FourDirectionKey, PreparedTransparentFrame[]> = {
       down: [],
       up: [],
       left: [],
       right: []
     };
-    const transparentZipEntries: Record<string, Buffer> = {};
+    const exportSize = clampExportFrameSize(input.exportFrameSize);
     for (const direction of directionKeys) {
       const signatures = [];
       for (const frame of centeredFrames[direction]) {
@@ -265,13 +277,9 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
         const loopPath = join(loopDir, direction, fileName);
         const transparentPath = join(transparentDir, direction, fileName);
         const centered = await readFile(frame.path);
-        await writeFile(loopPath, centered);
         const keyed = await applySampledBackgroundKeyToBuffer(centered, { tolerance });
-        const exportSize = clampExportFrameSize(input.exportFrameSize);
         const transparent = exportSize ? await resizeNearestBuffer(keyed, exportSize) : keyed;
-        await writeFile(transparentPath, transparent);
-        transparentBuffersByDirection[direction].push(transparent);
-        transparentZipEntries[`${direction}/${fileName}`] = transparent;
+        preparedFramesByDirection[direction].push({ frame, fileName, loopPath, transparentPath, centered, transparent });
         loopRecords.push({
           index: frame.index,
           url: toCharacterUrl(characterId, "base-character", "loop-export", "loop", direction, fileName)
@@ -289,6 +297,26 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
         transparentFrames: transparentRecords,
         loop
       });
+    }
+
+    const preparedBuffersByDirection = {
+      down: preparedFramesByDirection.down.map((frame) => frame.transparent),
+      up: preparedFramesByDirection.up.map((frame) => frame.transparent),
+      left: preparedFramesByDirection.left.map((frame) => frame.transparent),
+      right: preparedFramesByDirection.right.map((frame) => frame.transparent)
+    };
+    const profileSource = preparedFramesByDirection.down[0]?.transparent
+      ?? firstAvailableDirectionBuffer(preparedBuffersByDirection, directionKeys);
+    const profile = profileSource ? await createCharacterFrameProfileFromBuffer(profileSource) : null;
+    const normalizedTransparentBuffers = await normalizeFourDirectionFrameSequencesToProfile(preparedBuffersByDirection, profile);
+    for (const direction of directionKeys) {
+      for (const [index, prepared] of preparedFramesByDirection[direction].entries()) {
+        const transparent = normalizedTransparentBuffers[direction][index] ?? prepared.transparent;
+        await writeFile(prepared.loopPath, prepared.centered);
+        await writeFile(prepared.transparentPath, transparent);
+        transparentBuffersByDirection[direction].push(transparent);
+        transparentZipEntries[`${direction}/${prepared.fileName}`] = transparent;
+      }
     }
 
     const spriteSize = await inferFrameSize(transparentBuffersByDirection.down[0]);
@@ -360,7 +388,12 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
     if (!transparentBuffersByDirection) {
       return reply.code(404).send({ error: `缺少步行循环处理结果：storage/characters/${characterId}/base-character/loop-export/transparent` });
     }
-    const spriteSize = await inferFrameSize(transparentBuffersByDirection.down[0]);
+    const walkReference = transparentBuffersByDirection.down[0];
+    if (!walkReference) {
+      return reply.code(404).send({ error: `缂哄皯姝ヨ寰幆澶勭悊缁撴灉锛歴torage/characters/${characterId}/base-character/loop-export/transparent/down` });
+    }
+    const spriteSize = await inferFrameSize(walkReference);
+    const profile = await createCharacterFrameProfileFromBuffer(walkReference);
     const idleResult = await buildIdleDirectionExport({
       baseDir,
       characterId,
@@ -370,6 +403,7 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       keyColor,
       tolerance,
       spriteSize,
+      profile,
       transparentBuffersByDirection
     });
 
@@ -781,6 +815,7 @@ async function processAdvancedFourDirectionVideo(input: {
   const oneShotSelection = input.mode === "oneshot"
     ? await selectCompressedOneShotFrameIndices(centeredFrames, directionKeys, input.tolerance)
     : null;
+  const walkProfile = await readWalkCharacterFrameProfile(input.config.storageDir, input.characterId, directionKeys);
 
   for (const direction of directionKeys) {
     const selected = input.mode === "loop"
@@ -790,7 +825,7 @@ async function processAdvancedFourDirectionVideo(input: {
     selectedFrameCount = Math.max(selectedFrameCount, selectedFrames.length);
     const loopRecords = [];
     const transparentRecords = [];
-    const preparedFrames = [];
+    const preparedFrames: PreparedTransparentFrame[] = [];
     await mkdir(join(loopDir, direction), { recursive: true });
     await mkdir(join(transparentDir, direction), { recursive: true });
     for (const frame of selectedFrames) {
@@ -803,13 +838,20 @@ async function processAdvancedFourDirectionVideo(input: {
       const transparent = exportSize ? await resizeNearestBuffer(keyed, exportSize) : keyed;
       preparedFrames.push({ frame, fileName, loopPath, transparentPath, centered, transparent });
     }
-    const shouldNormalizeToIdleReference = input.mode === "oneshot";
-    const outputTransparentFrames = shouldNormalizeToIdleReference
-      ? await normalizeOneShotBuffersToIdleReference(
-        preparedFrames.map((frame) => frame.transparent),
-        resolveCharacterPath(input.config.storageDir, input.characterId, "base-character", "loop-export", "idle", "transparent", `${direction}.png`)
-      )
-      : preparedFrames.map((frame) => frame.transparent);
+    const preparedTransparentBuffers = preparedFrames.map((frame) => frame.transparent);
+    const outputTransparentFrames = walkProfile
+      ? (await normalizeFourDirectionFrameSequencesToProfile({
+        down: direction === "down" ? preparedTransparentBuffers : [],
+        up: direction === "up" ? preparedTransparentBuffers : [],
+        left: direction === "left" ? preparedTransparentBuffers : [],
+        right: direction === "right" ? preparedTransparentBuffers : []
+      }, walkProfile))[direction]
+      : input.mode === "oneshot"
+        ? await normalizeOneShotBuffersToIdleReference(
+          preparedTransparentBuffers,
+          resolveCharacterPath(input.config.storageDir, input.characterId, "base-character", "loop-export", "idle", "transparent", `${direction}.png`)
+        )
+        : preparedTransparentBuffers;
     for (const [index, prepared] of preparedFrames.entries()) {
       const transparent = outputTransparentFrames[index] ?? prepared.transparent;
       await writeFile(prepared.loopPath, prepared.centered);
@@ -1217,16 +1259,46 @@ async function tryBuildPreviewGif(
   }
 }
 
-async function readWalkTransparentBuffers(
-  baseDir: string,
-  directionKeys: readonly FourDirectionKey[]
-): Promise<Record<FourDirectionKey, Buffer[]> | null> {
-  const transparentBuffersByDirection: Record<FourDirectionKey, Buffer[]> = {
+function createEmptyDirectionBuffers(): Record<FourDirectionKey, Buffer[]> {
+  return {
     down: [],
     up: [],
     left: [],
     right: []
   };
+}
+
+function firstAvailableDirectionBuffer(
+  buffersByDirection: Record<FourDirectionKey, readonly Buffer[]>,
+  directionKeys: readonly FourDirectionKey[]
+): Buffer | null {
+  for (const direction of directionKeys) {
+    const buffer = buffersByDirection[direction][0];
+    if (buffer) {
+      return buffer;
+    }
+  }
+  return null;
+}
+
+async function readWalkCharacterFrameProfile(
+  storageDir: string,
+  characterId: string,
+  directionKeys: readonly FourDirectionKey[]
+): Promise<CharacterFrameProfile | null> {
+  const walkBuffers = await readWalkTransparentBuffers(
+    resolveCharacterPath(storageDir, characterId, "base-character", "loop-export"),
+    directionKeys
+  );
+  const reference = walkBuffers?.down[0] ?? (walkBuffers ? firstAvailableDirectionBuffer(walkBuffers, directionKeys) : null);
+  return reference ? createCharacterFrameProfileFromBuffer(reference) : null;
+}
+
+async function readWalkTransparentBuffers(
+  baseDir: string,
+  directionKeys: readonly FourDirectionKey[]
+): Promise<Record<FourDirectionKey, Buffer[]> | null> {
+  const transparentBuffersByDirection = createEmptyDirectionBuffers();
   for (const direction of directionKeys) {
     const directionDir = join(baseDir, "transparent", direction);
     if (!existsSync(directionDir)) {
@@ -1254,6 +1326,7 @@ async function buildIdleDirectionExport(input: {
   keyColor: string;
   tolerance: number;
   spriteSize: { width: number; height: number };
+  profile: CharacterFrameProfile | null;
   transparentBuffersByDirection: Record<FourDirectionKey, Buffer[]>;
 }): Promise<{
   frames: { key: FourDirectionKey; label: string; index: number; url: string }[];
@@ -1276,7 +1349,8 @@ async function buildIdleDirectionExport(input: {
       keyColor: input.keyColor,
       tolerance: input.tolerance,
       frameWidth: input.spriteSize.width,
-      frameHeight: input.spriteSize.height
+      frameHeight: input.spriteSize.height,
+      profile: input.profile
     }
   );
   const frames = [];

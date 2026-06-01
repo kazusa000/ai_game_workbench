@@ -520,13 +520,13 @@ function makeAdvancedActionResult(action: string) {
 function openSpriteAnimator() {
   localStorage.setItem("ai-game-workbench.sprite-animator.active-character", "hero");
   render(<App />);
-  fireEvent.click(screen.getByRole("button", { name: /模块 01：2D精美角色动画生成/i }));
+  fireEvent.click(screen.getByRole("button", { name: /模块 01：高清2D角色制作/i }));
 }
 
 function openPixelSpriteGenerator() {
   localStorage.setItem("ai-game-workbench.pixel-sprite-generator.active-character", "pixel-hero");
   render(<App />);
-  fireEvent.click(screen.getByRole("button", { name: /模块 02：像素角色生成器/i }));
+  fireEvent.click(screen.getByRole("button", { name: /模块 02：像素角色制作/i }));
 }
 
 describe("App", () => {
@@ -535,7 +535,7 @@ describe("App", () => {
     vi.stubGlobal("confirm", confirmMock);
     openPixelSpriteGenerator();
 
-    expect(screen.getByRole("heading", { name: "像素角色生成器" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "像素角色制作" })).toBeInTheDocument();
     expect(await screen.findByLabelText("当前像素角色")).toHaveValue("pixel-hero");
     expect(screen.getByRole("button", { name: "角色基准模板" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "四方向步行图" })).toBeInTheDocument();
@@ -598,7 +598,7 @@ describe("App", () => {
   it("opens module 01 with two-level navigation and the base template page", () => {
     openSpriteAnimator();
 
-    expect(screen.getByRole("heading", { name: "2D精美角色动画生成" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "高清2D角色制作" })).toBeInTheDocument();
     expect(screen.getByLabelText("当前角色")).toHaveValue("hero");
     expect(screen.getByRole("button", { name: "角色基准模板生成" })).toBeInTheDocument();
     expect(screen.getByText("基础角色生成")).toBeInTheDocument();

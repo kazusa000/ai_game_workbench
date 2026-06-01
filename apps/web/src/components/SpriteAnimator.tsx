@@ -2056,7 +2056,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         <header className="tool-header">
           <div>
             <p className="eyebrow">模块 01 / {MODULE_PAGES[activePage]}</p>
-            <h1>2D精美角色动画生成</h1>
+            <h1>高清2D角色制作</h1>
           </div>
           <div className="toolbar">
             <label className="api-key-field">

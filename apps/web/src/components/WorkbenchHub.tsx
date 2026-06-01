@@ -27,13 +27,13 @@ export function WorkbenchHub({ onOpenPixelSpriteGenerator, onOpenSpriteAnimator 
       <section className="module-grid" aria-label="工作台模块">
         <button className="module-card module-card-active" type="button" onClick={onOpenSpriteAnimator}>
           <span className="module-icon"><Film size={28} /></span>
-          <span className="module-title">模块 01：2D精美角色动画生成</span>
+          <span className="module-title">模块 01：高清2D角色制作</span>
           <span className="module-desc">生成角色基准模板、基础角色方向图、步行动画和循环精灵帧。</span>
         </button>
 
         <button className="module-card module-card-active" type="button" onClick={onOpenPixelSpriteGenerator}>
           <span className="module-icon"><ImagePlus size={28} /></span>
-          <span className="module-title">模块 02：像素角色生成器</span>
+          <span className="module-title">模块 02：像素角色制作</span>
           <span className="module-desc">生成像素角色基准模板、四方向步行图，并切分 idle / walk 精灵帧。</span>
         </button>
 

@@ -552,7 +552,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
         <header className="tool-header">
           <div>
             <p className="eyebrow">模块 02 / {PAGE_LABELS[activePage]}</p>
-            <h1>像素角色生成器</h1>
+            <h1>像素角色制作</h1>
           </div>
           <div className="toolbar">
             <label className="api-key-field">

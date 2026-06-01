@@ -20,15 +20,17 @@ import {
   resolveModule01ReferenceImageOverridePath
 } from "../referenceImages";
 
-type AssetRouteConfig = Pick<AppConfig, "storageDir" | "publicAssetBaseUrl" | "port">;
+type AssetRouteConfig = Pick<AppConfig, "storageDir" | "module01CharacterExportDir" | "publicAssetBaseUrl" | "port">;
 
 export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConfig): void {
   const assetDir = join(config.storageDir, "assets");
   const jobsDir = join(config.storageDir, "jobs");
   const charactersDir = join(config.storageDir, "characters");
+  const characterExportDir = config.module01CharacterExportDir;
   mkdirSync(assetDir, { recursive: true });
   mkdirSync(jobsDir, { recursive: true });
   mkdirSync(charactersDir, { recursive: true });
+  mkdirSync(characterExportDir, { recursive: true });
 
   void app.register(multipart, {
     limits: {
@@ -48,6 +50,11 @@ export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConf
   void app.register(fastifyStatic, {
     root: charactersDir,
     prefix: "/characters/",
+    decorateReply: false
+  });
+  void app.register(fastifyStatic, {
+    root: characterExportDir,
+    prefix: "/exports/character-2d/",
     decorateReply: false
   });
 

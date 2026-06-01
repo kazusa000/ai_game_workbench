@@ -276,6 +276,20 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     if (imageAccessError) {
       return reply.code(400).send({ error: imageAccessError });
     }
+    const imageUrls = [
+      ...(input.lastFrameUrl ? [input.lastFrameUrl] : []),
+      ...(input.inputReferenceUrls ?? [])
+    ].map((url) => url.trim()).filter((url) => url.length > 0);
+    for (const imageUrl of imageUrls) {
+      const referenceUrlError = validatePublicHttpsImageUrl(imageUrl);
+      if (referenceUrlError) {
+        return reply.code(400).send({ error: `参考图 URL 不可用：${referenceUrlError}` });
+      }
+      const referenceAccessError = await validatePublicImageUrlContent(imageUrl);
+      if (referenceAccessError) {
+        return reply.code(400).send({ error: `参考图无法访问：${referenceAccessError}` });
+      }
+    }
     const client = new OpenRouterClient({ apiKey });
     try {
       return await client.createVideo(buildVideoGenerationPayload(input));

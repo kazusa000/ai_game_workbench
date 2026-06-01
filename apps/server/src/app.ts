@@ -7,8 +7,9 @@ import { registerGenerationRoutes } from "./routes/generation";
 import { registerProcessingRoutes } from "./routes/processing";
 import { registerCharacterRoutes } from "./routes/characters";
 import { registerWorkflowConfigRoutes } from "./routes/workflowConfig";
+import { registerGodotExportRoutes } from "./routes/godotExport";
 import { registerOneClickCharacterRoutes, type OneClickCharacterJobRunner } from "./routes/oneClickCharacterJobs";
-import { resolveDefaultFfmpegPath, type AppConfig } from "./config";
+import { resolveDefaultFfmpegPath, resolveDefaultModule01CharacterExportDir, type AppConfig } from "./config";
 
 export type CreateAppOptions = Pick<AppConfig, "storageDir"> & Partial<AppConfig> & {
   oneClickCharacterJobRunner?: OneClickCharacterJobRunner;
@@ -23,6 +24,7 @@ export function createApp(options: CreateAppOptions) {
   });
   const projectStore = createProjectStore({ storageDir: options.storageDir });
   const ffmpegPath = options.ffmpegPath ?? resolveDefaultFfmpegPath();
+  const module01CharacterExportDir = options.module01CharacterExportDir ?? resolveDefaultModule01CharacterExportDir();
 
   void app.register(cors, {
     origin: true,
@@ -40,12 +42,14 @@ export function createApp(options: CreateAppOptions) {
   registerAssetRoutes(app, {
     port: options.port ?? 8787,
     storageDir: options.storageDir,
+    module01CharacterExportDir,
     publicAssetBaseUrl: options.publicAssetBaseUrl
   });
   registerGenerationRoutes(app, {
     ffmpegPath,
     port: options.port ?? 8787,
     storageDir: options.storageDir,
+    module01CharacterExportDir,
     openRouterApiKey: options.openRouterApiKey,
     publicAssetBaseUrl: options.publicAssetBaseUrl,
     localCodexImageGenerator: options.localCodexImageGenerator
@@ -53,6 +57,10 @@ export function createApp(options: CreateAppOptions) {
   registerProcessingRoutes(app, {
     ffmpegPath,
     storageDir: options.storageDir
+  });
+  registerGodotExportRoutes(app, {
+    storageDir: options.storageDir,
+    module01CharacterExportDir
   });
   registerOneClickCharacterRoutes(app, {
     ffmpegPath,

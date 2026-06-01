@@ -45,6 +45,7 @@ export interface AlignIdleFourDirectionOptions extends SpriteSheetOptions {
 type RgbColor = { r: number; g: number; b: number };
 type ForegroundBox = { left: number; top: number; right: number; bottom: number };
 type AlphaComponent = ForegroundBox & { count: number; pixels: number[] };
+const DEFAULT_CHROMA_KEY_TOLERANCE = 255;
 
 interface AlphaArtifactCleanupOptions {
   preferredBox?: ForegroundBox;
@@ -54,7 +55,7 @@ interface AlphaArtifactCleanupOptions {
 export async function applyColorKeyToBuffer(
   input: Buffer,
   keyColor: string,
-  tolerance = 8
+  tolerance = DEFAULT_CHROMA_KEY_TOLERANCE
 ): Promise<Buffer> {
   const image = sharp(input).ensureAlpha();
   const metadata = await image.metadata();
@@ -96,7 +97,7 @@ export async function applySampledBackgroundKeyToBuffer(
   }
 
   const raw = await image.raw().toBuffer();
-  const backgroundModel = buildSampledBackgroundModel(raw, metadata.width, metadata.height, options.tolerance ?? 8);
+  const backgroundModel = buildSampledBackgroundModel(raw, metadata.width, metadata.height, options.tolerance ?? DEFAULT_CHROMA_KEY_TOLERANCE);
   const backgroundMask = findConnectedBackgroundMask(raw, metadata.width, metadata.height, backgroundModel);
   for (let pixelIndex = 0; pixelIndex < backgroundMask.length; pixelIndex += 1) {
     if (backgroundMask[pixelIndex] === 1 || isGlobalGreenScreenBackgroundPixel(raw, pixelIndex, backgroundModel)) {
@@ -118,7 +119,7 @@ export async function applySampledBackgroundKeyToBuffer(
 export async function splitAndCenterFourDirectionFrameBuffer(
   input: Buffer,
   keyColor: string,
-  tolerance = 8
+  tolerance = DEFAULT_CHROMA_KEY_TOLERANCE
 ): Promise<FourDirectionBuffers> {
   const split = await splitFourDirectionFrameBuffer(input);
   return {
@@ -228,7 +229,7 @@ export async function alignIdleFourDirectionSheetToWalkBuffers(
 export async function centerFrameSequenceBuffers(
   inputs: readonly Buffer[],
   keyColor: string,
-  tolerance = 8
+  tolerance = DEFAULT_CHROMA_KEY_TOLERANCE
 ): Promise<Buffer[]> {
   if (inputs.length === 0) {
     return [];
@@ -282,7 +283,7 @@ export async function centerFrameSequenceBuffers(
 export async function centerSubjectBuffer(
   input: Buffer,
   keyColor: string,
-  tolerance = 8
+  tolerance = DEFAULT_CHROMA_KEY_TOLERANCE
 ): Promise<Buffer> {
   const image = sharp(input).ensureAlpha();
   const metadata = await image.metadata();
@@ -334,7 +335,7 @@ export async function createFrameSignatureBuffer(
   const raw = await image.raw().toBuffer();
   if (options.keyColor) {
     const key = parseHexColor(options.keyColor);
-    const tolerance = options.tolerance ?? 8;
+    const tolerance = options.tolerance ?? DEFAULT_CHROMA_KEY_TOLERANCE;
     for (let index = 0; index < raw.length; index += 4) {
       const pixel = {
         r: raw[index] ?? 0,
@@ -538,7 +539,7 @@ async function alignIdleDirectionToWalkFrames(
   }
   const idleRaw = await idleImage.raw().toBuffer();
   const idleBox = findAlphaForegroundBox(idleRaw, idleMetadata.width, idleMetadata.height)
-    ?? findForegroundBox(idleRaw, idleMetadata.width, idleMetadata.height, parseHexColor(options.keyColor), options.tolerance ?? 8);
+    ?? findForegroundBox(idleRaw, idleMetadata.width, idleMetadata.height, parseHexColor(options.keyColor), options.tolerance ?? DEFAULT_CHROMA_KEY_TOLERANCE);
   const referenceBox = await findUnionAlphaForegroundBox(walkFrames);
 
   if (!idleBox || !referenceBox) {

@@ -1,12 +1,16 @@
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import ffmpegStaticPath from "ffmpeg-static";
 import type { LocalCodexImageGenerator } from "./providers/localCodex";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export interface AppConfig {
   openRouterApiKey?: string;
   publicAssetBaseUrl?: string;
   ffmpegPath: string;
   storageDir: string;
+  module01CharacterExportDir: string;
   port: number;
   localCodexImageGenerator?: LocalCodexImageGenerator;
 }
@@ -17,10 +21,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     publicAssetBaseUrl: env.PUBLIC_ASSET_BASE_URL,
     ffmpegPath: env.FFMPEG_PATH ?? resolveDefaultFfmpegPath(),
     storageDir: resolve(env.STORAGE_DIR ?? "./storage"),
+    module01CharacterExportDir: resolve(env.MODULE01_CHARACTER_EXPORT_DIR ?? resolveDefaultModule01CharacterExportDir()),
     port: Number(env.PORT ?? 8787)
   };
 }
 
 export function resolveDefaultFfmpegPath(): string {
   return ffmpegStaticPath ?? "ffmpeg";
+}
+
+export function resolveDefaultModule01CharacterExportDir(): string {
+  return resolve(REPO_ROOT, "Export", "Character_2D");
 }

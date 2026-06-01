@@ -13,6 +13,8 @@ export interface BuildVideoGenerationPayloadInput {
   model: string;
   prompt: string;
   firstFrameUrl: string;
+  lastFrameUrl?: string;
+  referenceOnly?: boolean;
   inputReferenceUrls?: readonly string[];
   durationSeconds?: number;
   resolution?: "480p" | "720p" | "1080p" | string;
@@ -114,6 +116,23 @@ function isImageOnlyModel(model: string): boolean {
 }
 
 export function buildVideoGenerationPayload(input: BuildVideoGenerationPayloadInput) {
+  const lastFrameUrl = input.lastFrameUrl?.trim();
+  const frameImages = input.referenceOnly ? [] : [
+    {
+      type: "image_url" as const,
+      image_url: {
+        url: input.firstFrameUrl
+      },
+      frame_type: "first_frame" as const
+    },
+    ...(lastFrameUrl ? [{
+      type: "image_url" as const,
+      image_url: {
+        url: lastFrameUrl
+      },
+      frame_type: "last_frame" as const
+    }] : [])
+  ];
   const inputReferences = input.inputReferenceUrls
     ?.map((url) => url.trim())
     .filter((url) => url.length > 0)
@@ -131,15 +150,7 @@ export function buildVideoGenerationPayload(input: BuildVideoGenerationPayloadIn
     resolution: input.resolution ?? ("720p" as const),
     aspect_ratio: "1:1" as const,
     generate_audio: false,
-    frame_images: [
-      {
-        type: "image_url" as const,
-        image_url: {
-          url: input.firstFrameUrl
-        },
-        frame_type: "first_frame" as const
-      }
-    ],
+    ...(frameImages.length > 0 ? { frame_images: frameImages } : {}),
     ...(inputReferences && inputReferences.length > 0 ? { input_references: inputReferences } : {})
   };
 }

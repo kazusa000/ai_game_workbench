@@ -292,18 +292,6 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
     }
 
     const spriteSize = await inferFrameSize(transparentBuffersByDirection.down[0]);
-    const idleResult = await tryBuildIdleDirectionExport({
-      baseDir,
-      characterId,
-      config,
-      directionKeys,
-      directionLabels,
-      keyColor,
-      tolerance,
-      spriteSize,
-      transparentBuffersByDirection,
-      transparentZipEntries
-    });
     const spriteSheet = await buildFourDirectionSpriteSheetFromBuffers(transparentBuffersByDirection, {
       frameWidth: spriteSize.width,
       frameHeight: spriteSize.height
@@ -332,9 +320,60 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       directions,
       spriteSheetUrl: toCharacterUrl(characterId, "base-character", "loop-export", "exports", "sprite-sheet.png"),
       transparentZipUrl: toCharacterUrl(characterId, "base-character", "loop-export", "exports", "transparent-frames.zip"),
-      gifPreviewUrl,
-      idle: idleResult
+      gifPreviewUrl
     };
+  });
+
+  app.post("/api/processing/idle-four-direction", async (request, reply) => {
+    const input = request.body as {
+      characterId?: string;
+      keyColor?: string;
+      tolerance?: number;
+    };
+    const characterId = input.characterId?.trim();
+    if (!characterId) {
+      return reply.code(400).send({ error: "请先创建或选择角色文件夹。" });
+    }
+    try {
+      await ensureCharacterFolder(config.storageDir, characterId);
+    } catch (error: unknown) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : "请先创建或选择角色文件夹。" });
+    }
+
+    const keyColor = input.keyColor ?? "#00ff00";
+    const tolerance = clampTolerance(input.tolerance);
+    const baseDir = resolveCharacterPath(config.storageDir, characterId, "base-character", "loop-export");
+    const directionKeys: readonly FourDirectionKey[] = ["down", "up", "left", "right"];
+    const directionLabels = {
+      down: "下方向",
+      up: "上方向",
+      left: "左方向",
+      right: "右方向"
+    } satisfies Record<FourDirectionKey, string>;
+
+    const idleTemplatePath = resolveCharacterPath(config.storageDir, characterId, "base-character", "direction-templates", "idle-4dir.png");
+    if (!existsSync(idleTemplatePath)) {
+      return reply.code(404).send({ error: `缺少待机四方向图：storage/characters/${characterId}/base-character/direction-templates/idle-4dir.png` });
+    }
+
+    const transparentBuffersByDirection = await readWalkTransparentBuffers(baseDir, directionKeys);
+    if (!transparentBuffersByDirection) {
+      return reply.code(404).send({ error: `缺少步行循环处理结果：storage/characters/${characterId}/base-character/loop-export/transparent` });
+    }
+    const spriteSize = await inferFrameSize(transparentBuffersByDirection.down[0]);
+    const idleResult = await buildIdleDirectionExport({
+      baseDir,
+      characterId,
+      config,
+      directionKeys,
+      directionLabels,
+      keyColor,
+      tolerance,
+      spriteSize,
+      transparentBuffersByDirection
+    });
+
+    return idleResult;
   });
 
   app.post("/api/processing/advanced-action/start-frame", async (request, reply) => {
@@ -481,7 +520,7 @@ function clampFrameCount(value: unknown, fallback = 12): number {
 }
 
 function clampTolerance(value: unknown): number {
-  const tolerance = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 8;
+  const tolerance = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 255;
   return Math.max(0, Math.min(255, tolerance));
 }
 
@@ -764,7 +803,7 @@ async function processAdvancedFourDirectionVideo(input: {
       const transparent = exportSize ? await resizeNearestBuffer(keyed, exportSize) : keyed;
       preparedFrames.push({ frame, fileName, loopPath, transparentPath, centered, transparent });
     }
-    const shouldNormalizeToIdleReference = input.mode === "oneshot" && input.actionKind !== "attack-1";
+    const shouldNormalizeToIdleReference = input.mode === "oneshot";
     const outputTransparentFrames = shouldNormalizeToIdleReference
       ? await normalizeOneShotBuffersToIdleReference(
         preparedFrames.map((frame) => frame.transparent),
@@ -998,12 +1037,9 @@ async function normalizeOneShotBuffersToIdleReference(
   if (buffers.length === 0 || !existsSync(referencePath)) {
     return [...buffers];
   }
-  const firstBuffer = buffers[0];
-  if (!firstBuffer) {
-    return [...buffers];
-  }
   const reference = await getAlphaBoxFromBuffer(await readFile(referencePath));
-  const baseline = await getAlphaBoxFromBuffer(firstBuffer);
+  const frames = await Promise.all(buffers.map((buffer) => getAlphaBoxFromBuffer(buffer)));
+  const baseline = frames[0];
   if (!reference || !baseline) {
     return [...buffers];
   }
@@ -1021,7 +1057,7 @@ async function normalizeOneShotBuffersToIdleReference(
     return [...buffers];
   }
 
-  const scale = Math.max(0.5, Math.min(3, referenceHeight / baselineHeight));
+  const scale = Math.max(0.5, Math.min(8, referenceHeight / baselineHeight));
   const baselineCenter = getBoxCenter(baseline.box);
   const referenceCenter = getBoxCenter(referenceBox);
 
@@ -1181,7 +1217,35 @@ async function tryBuildPreviewGif(
   }
 }
 
-async function tryBuildIdleDirectionExport(input: {
+async function readWalkTransparentBuffers(
+  baseDir: string,
+  directionKeys: readonly FourDirectionKey[]
+): Promise<Record<FourDirectionKey, Buffer[]> | null> {
+  const transparentBuffersByDirection: Record<FourDirectionKey, Buffer[]> = {
+    down: [],
+    up: [],
+    left: [],
+    right: []
+  };
+  for (const direction of directionKeys) {
+    const directionDir = join(baseDir, "transparent", direction);
+    if (!existsSync(directionDir)) {
+      return null;
+    }
+    const frameNames = (await readdir(directionDir))
+      .filter((fileName) => fileName.toLowerCase().endsWith(".png"))
+      .sort();
+    if (frameNames.length === 0) {
+      return null;
+    }
+    for (const fileName of frameNames) {
+      transparentBuffersByDirection[direction].push(await readFile(join(directionDir, fileName)));
+    }
+  }
+  return transparentBuffersByDirection;
+}
+
+async function buildIdleDirectionExport(input: {
   baseDir: string;
   characterId: string;
   config: ProcessingRouteConfig;
@@ -1191,19 +1255,20 @@ async function tryBuildIdleDirectionExport(input: {
   tolerance: number;
   spriteSize: { width: number; height: number };
   transparentBuffersByDirection: Record<FourDirectionKey, Buffer[]>;
-  transparentZipEntries: Record<string, Buffer>;
 }): Promise<{
   frames: { key: FourDirectionKey; label: string; index: number; url: string }[];
   spriteSheetUrl: string;
-} | undefined> {
+}> {
   const idleTemplatePath = resolveCharacterPath(input.config.storageDir, input.characterId, "base-character", "direction-templates", "idle-4dir.png");
   if (!existsSync(idleTemplatePath)) {
-    return undefined;
+    throw new Error(`缺少待机四方向图：storage/characters/${input.characterId}/base-character/direction-templates/idle-4dir.png`);
   }
 
   const idleDir = join(input.baseDir, "idle");
   const idleTransparentDir = join(idleDir, "transparent");
+  const exportDir = join(input.baseDir, "exports");
   await mkdir(idleTransparentDir, { recursive: true });
+  await mkdir(exportDir, { recursive: true });
   const idleBuffers = await alignIdleFourDirectionSheetToWalkBuffers(
     await readFile(idleTemplatePath),
     input.transparentBuffersByDirection,
@@ -1219,7 +1284,6 @@ async function tryBuildIdleDirectionExport(input: {
     const fileName = `${direction}.png`;
     const outputPath = join(idleTransparentDir, fileName);
     await writeFile(outputPath, idleBuffers[direction]);
-    input.transparentZipEntries[`idle/${fileName}`] = idleBuffers[direction];
     frames.push({
       key: direction,
       label: input.directionLabels[direction],
@@ -1232,7 +1296,7 @@ async function tryBuildIdleDirectionExport(input: {
     frameWidth: input.spriteSize.width,
     frameHeight: input.spriteSize.height
   });
-  await writeFile(join(input.baseDir, "exports", "idle-4dir-sprite-sheet.png"), idleSpriteSheet);
+  await writeFile(join(exportDir, "idle-4dir-sprite-sheet.png"), idleSpriteSheet);
 
   return {
     frames,

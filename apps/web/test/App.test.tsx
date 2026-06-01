@@ -59,7 +59,8 @@ beforeEach(() => {
             { id: "create-character", label: "创建角色文件夹", status: "completed" },
             { id: "base-template", label: "生成角色基准模板", status: "running" },
             { id: "walk-video", label: "生成四方向步行视频", status: "pending" },
-            { id: "loop-export", label: "智能循环与导出", status: "pending" }
+            { id: "walk-loop-export", label: "处理步行四方向循环", status: "pending" },
+            { id: "idle-loop-export", label: "处理待机四方向", status: "pending" }
           ]
         }
       }, true, 202);
@@ -76,7 +77,8 @@ beforeEach(() => {
             { id: "create-character", label: "创建角色文件夹", status: "completed" },
             { id: "base-template", label: "生成角色基准模板", status: "completed" },
             { id: "walk-video", label: "生成四方向步行视频", status: "completed" },
-            { id: "loop-export", label: "智能循环与导出", status: "completed" }
+            { id: "walk-loop-export", label: "处理步行四方向循环", status: "completed" },
+            { id: "idle-loop-export", label: "处理待机四方向", status: "completed" }
           ]
         }
       });
@@ -287,16 +289,32 @@ beforeEach(() => {
         ],
         spriteSheetUrl: `${characterBase}/base-character/loop-export/exports/sprite-sheet.png`,
         transparentZipUrl: `${characterBase}/base-character/loop-export/exports/transparent-frames.zip`,
-        gifPreviewUrl: `${characterBase}/base-character/loop-export/exports/preview.gif`,
-        idle: {
-          frames: [
-            makeIdleDirectionFrame("down", "下方向"),
-            makeIdleDirectionFrame("up", "上方向"),
-            makeIdleDirectionFrame("left", "左方向"),
-            makeIdleDirectionFrame("right", "右方向")
-          ],
-          spriteSheetUrl: `${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`
-        }
+        gifPreviewUrl: `${characterBase}/base-character/loop-export/exports/preview.gif`
+      });
+    }
+    if (url.includes("/api/processing/idle-four-direction")) {
+      return jsonResponse({
+        frames: [
+          makeIdleDirectionFrame("down", "下方向"),
+          makeIdleDirectionFrame("up", "上方向"),
+          makeIdleDirectionFrame("left", "左方向"),
+          makeIdleDirectionFrame("right", "右方向")
+        ],
+        spriteSheetUrl: `${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`
+      });
+    }
+    if (url.includes("/api/export/godot")) {
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      return jsonResponse({
+        characterId: body.characterId,
+        exportSize: body.exportSize,
+        exportedActions: ["idle", "walk", "attack1"],
+        animationCount: 12,
+        exportRootPath: `E:\\game_develop\\tool\\ai_game_workbench\\Export\\Character_2D\\hero\\size-${body.exportSize}`,
+        exportRootUrl: `/exports/character-2d/hero/size-${body.exportSize}`,
+        manifestUrl: `/exports/character-2d/hero/size-${body.exportSize}/animations.json`,
+        importScriptUrl: `/exports/character-2d/hero/size-${body.exportSize}/import_to_godot.gd`,
+        zipUrl: `/exports/character-2d/hero/size-${body.exportSize}/godot-export.zip`
       });
     }
     if (url.includes("/api/processing/frames")) {
@@ -401,30 +419,32 @@ describe("App", () => {
     expect(screen.getByLabelText("当前角色")).toHaveValue("hero");
     expect(screen.getByRole("button", { name: "角色基准模板生成" })).toBeInTheDocument();
     expect(screen.getByText("基础角色生成")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "四方向模板图生成" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "四方向步行视频" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "智能循环与导出" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "步行四方向" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "待机四方向" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "四方向模板图生成" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "四方向步行视频" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "智能循环与导出" })).not.toBeInTheDocument();
     expect(screen.getByText("进阶角色生成")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "跑步四方向" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "攻击动作1" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "跳跃动作" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "攻击四方向1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "跳跃四方向" })).toBeInTheDocument();
     const oneClickButton = screen.getByRole("button", { name: "一键生成角色" });
     const characterPreviewButton = screen.getByRole("button", { name: "角色预览" });
+    const godotExportButton = screen.getByRole("button", { name: "导出" });
     expect(oneClickButton.compareDocumentPosition(characterPreviewButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(characterPreviewButton.compareDocumentPosition(godotExportButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(characterPreviewButton).toBeInTheDocument();
+    expect(godotExportButton).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "角色基准模板生成" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "四方向步行视频" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "智能循环与导出" })).not.toBeInTheDocument();
-    expect(screen.getByText("画风参考")).toBeInTheDocument();
+    expect(screen.queryByText("画风参考")).not.toBeInTheDocument();
     expect(screen.getByText("角色参考")).toBeInTheDocument();
     expect(screen.getByText("基准模板")).toBeInTheDocument();
     expect(screen.queryByLabelText(/视频模型/i)).not.toBeInTheDocument();
     expect(screen.getAllByText("设置").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "参考图设置" })).toBeInTheDocument();
-    expect(screen.getByAltText("赛璐璐画风参考图预览")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8787/style-references/cel-anime-south-facing.png"
-    );
+    expect(screen.queryByAltText("赛璐璐画风参考图预览")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("上传画风参考图")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/图像模型/i)).toHaveValue("openai/gpt-5.4-image-2");
     expect(screen.getByRole("option", { name: "local GPT image2" })).toHaveValue("local/gpt-image-2");
@@ -460,7 +480,7 @@ describe("App", () => {
     expect(screen.getByLabelText("一键生成待机")).toBeChecked();
     expect(screen.getByLabelText("一键生成待机")).toBeDisabled();
     expect(screen.getByLabelText("一键生成跑步")).not.toBeChecked();
-    expect(screen.getByLabelText("一键生成攻击动作1")).not.toBeChecked();
+    expect(screen.getByLabelText("一键生成攻击四方向1")).not.toBeChecked();
     expect(screen.getByLabelText("一键生成跳跃")).not.toBeChecked();
     expect(screen.getByRole("progressbar", { name: "一键生成进度" })).toHaveAttribute("aria-valuenow", "0");
     expect(screen.getByText("0%")).toBeInTheDocument();
@@ -496,42 +516,32 @@ describe("App", () => {
       expect.stringContaining(`${characterBase}/base-template/output.png`)
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "四方向模板图生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
     expect(screen.getByAltText("角色基准模板预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/direction-templates/base-template.png`)
-    );
-    expect(screen.getByAltText("待机 2x2 输出预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/direction-templates/idle-4dir.png`)
     );
     expect(screen.getByAltText("步行 2x2 输出预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/direction-templates/walk-4dir.png`)
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
-    expect(screen.getByAltText("视频输入预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/walk-video/input-4dir.png`)
-    );
-    expect(screen.getByLabelText("视频输出预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/walk-video/source.mp4`)
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "智能循环与导出" }));
     expect(screen.getByLabelText("帧处理视频输入预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/walk-video/source.mp4`)
     );
-    expect(screen.getByAltText("待机四方向预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
-    );
     expect(screen.getByAltText("下方向最终循环预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/loop-export/transparent/down/frame_002.png`)
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "待机四方向" }));
+    expect(screen.getByAltText("待机 2x2 输出预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/direction-templates/idle-4dir.png`)
+    );
+    expect(screen.getByAltText("待机四方向预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
     );
   });
 
@@ -566,6 +576,47 @@ describe("App", () => {
     expect(screen.getByLabelText("角色预览显示尺寸")).toHaveValue(180);
   });
 
+  it("exports the selected character for Godot from the dedicated export page", async () => {
+    openSpriteAnimator();
+
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+
+    expect(screen.getByRole("heading", { name: "导出" })).toBeInTheDocument();
+    const sizeSelect = screen.getByLabelText("Godot 导出尺寸");
+    expect(sizeSelect).toHaveValue("512");
+    expect(within(sizeSelect).getByRole("option", { name: "256" })).toBeInTheDocument();
+    expect(within(sizeSelect).getByRole("option", { name: "384" })).toBeInTheDocument();
+    expect(within(sizeSelect).getByRole("option", { name: "512" })).toBeInTheDocument();
+    expect(within(sizeSelect).getByRole("option", { name: "1024" })).toBeInTheDocument();
+
+    fireEvent.change(sizeSelect, {
+      target: { value: "384" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "生成 Godot 导出包" }));
+
+    await screen.findByText(/Godot 导出完成/);
+    const exportCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes("/api/export/godot") && init?.method === "POST"
+    );
+    expect(JSON.parse(String(exportCall?.[1]?.body))).toEqual({
+      characterId: "hero",
+      exportSize: 384
+    });
+    expect(screen.getByRole("link", { name: "下载 Godot 导出 ZIP" })).toHaveAttribute(
+      "href",
+      expect.stringContaining(`/exports/character-2d/hero/size-384/godot-export.zip`)
+    );
+    expect(screen.getByRole("link", { name: "下载 animations.json" })).toHaveAttribute(
+      "href",
+      expect.stringContaining(`/exports/character-2d/hero/size-384/animations.json`)
+    );
+    expect(screen.getByRole("link", { name: "下载 import_to_godot.gd" })).toHaveAttribute(
+      "href",
+      expect.stringContaining(`/exports/character-2d/hero/size-384/import_to_godot.gd`)
+    );
+    expect(screen.getByText(/Export\\Character_2D\\hero\\size-384/)).toBeInTheDocument();
+  });
+
   it("loads and saves per-action character preview FPS in backend workflow config", async () => {
     module01WorkflowConfigPayload = {
       imageSystemPrompt: "保留已有全局配置",
@@ -591,13 +642,13 @@ describe("App", () => {
     });
     expect(screen.getByLabelText("角色预览行走 FPS")).toHaveValue(24);
     expect(screen.getByLabelText("角色预览跑步 FPS")).toHaveValue(120);
-    expect(screen.getByLabelText("角色预览攻击动作1 FPS")).toHaveValue(18);
-    expect(screen.getByLabelText("角色预览跳跃 FPS")).toHaveValue(90);
+    expect(screen.getByLabelText("角色预览攻击四方向1 FPS")).toHaveValue(18);
+    expect(screen.getByLabelText("角色预览跳跃四方向 FPS")).toHaveValue(90);
 
     fireEvent.change(screen.getByLabelText("角色预览跑步 FPS"), {
       target: { value: "240" }
     });
-    fireEvent.change(screen.getByLabelText("角色预览跳跃 FPS"), {
+    fireEvent.change(screen.getByLabelText("角色预览跳跃四方向 FPS"), {
       target: { value: "300" }
     });
     fireEvent.click(screen.getByRole("button", { name: "保存预览配置" }));
@@ -704,39 +755,41 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "跑步四方向" }));
     expect(screen.getByRole("heading", { name: "跑步四方向" })).toBeInTheDocument();
     expect(screen.getByText("步行 2x2 基准")).toBeInTheDocument();
-    expect(screen.getByText("跑步参考")).toBeInTheDocument();
+    expect(screen.queryByText("跑步参考")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /生成跑步四方向首帧/i })).toBeInTheDocument();
     expect(screen.getByLabelText("跑步首帧系统提示词")).toBeInTheDocument();
     expect(screen.getByLabelText("跑步视频系统提示词")).toBeInTheDocument();
     expect(screen.getByLabelText("跑步视频最终提示词")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "攻击动作1" }));
-    expect(screen.getByRole("heading", { name: "攻击动作1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "攻击四方向1" }));
+    expect(screen.getByRole("heading", { name: "攻击四方向1" })).toBeInTheDocument();
+    expect(screen.queryByText("待机四方向基准")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /准备攻击起始帧/i })).toBeInTheDocument();
-    expect(screen.queryByLabelText("上传攻击动作1参考图")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("上传攻击四方向1参考图")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /生成攻击中间帧/i })).toBeInTheDocument();
     expect(screen.getByLabelText("攻击中间帧自定义提示词")).toBeInTheDocument();
-    expect(screen.getByLabelText("攻击动作1准备缩放比例")).toHaveValue(0.74);
+    expect(screen.getByLabelText("攻击四方向1准备缩放比例")).toHaveValue(0.74);
 
-    fireEvent.click(screen.getByRole("button", { name: "跳跃动作" }));
-    expect(screen.getByRole("heading", { name: "跳跃动作" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "跳跃四方向" }));
+    expect(screen.getByRole("heading", { name: "跳跃四方向" })).toBeInTheDocument();
+    expect(screen.queryByText("待机四方向基准")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /准备跳跃起始帧/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("跳跃动作准备缩放比例")).toHaveValue(0.78);
+    expect(screen.getByLabelText("跳跃四方向准备缩放比例")).toHaveValue(0.78);
   });
 
   it("passes the generated attack middle frame when submitting attack video generation", async () => {
     openSpriteAnimator();
 
-    fireEvent.click(screen.getByRole("button", { name: "攻击动作1" }));
+    fireEvent.click(screen.getByRole("button", { name: "攻击四方向1" }));
     fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
       target: { value: "sk-or-v1-web-key" }
     });
 
-    fireEvent.change(screen.getByLabelText("攻击动作1准备缩放比例"), {
+    fireEvent.change(screen.getByLabelText("攻击四方向1准备缩放比例"), {
       target: { value: "0.62" }
     });
     fireEvent.click(screen.getByRole("button", { name: /准备攻击起始帧/i }));
-    await screen.findByAltText("攻击动作1起始帧预览");
+    await screen.findByAltText("攻击四方向1起始帧预览");
 
     await waitFor(() => {
       const prepareCall = fetchMock.mock.calls.find(([url, init]) =>
@@ -753,7 +806,7 @@ describe("App", () => {
       target: { value: "四方向角色都进入攻击动作中段，武器挥出但不出格。" }
     });
     fireEvent.click(screen.getByRole("button", { name: /生成攻击中间帧/i }));
-    await screen.findByAltText("攻击动作1中间帧预览");
+    await screen.findByAltText("攻击四方向1中间帧预览");
 
     await waitFor(() => {
       const midframeCall = fetchMock.mock.calls.find(([url, init]) =>
@@ -776,7 +829,9 @@ describe("App", () => {
       expect(videoCall).toBeTruthy();
       expect(JSON.parse(String(videoCall?.[1]?.body))).toMatchObject({
         firstFrameUrl: `https://assets.example.com${characterBase}/advanced-character/attack-1/video/input-4dir.png`,
+        referenceOnly: true,
         inputReferenceUrls: [
+          `https://assets.example.com${characterBase}/advanced-character/attack-1/video/input-4dir.png`,
           `https://assets.example.com${characterBase}/advanced-character/attack-1/midframe/middle-4dir.png`
         ]
       });
@@ -827,37 +882,23 @@ describe("App", () => {
   it("opens each base character generation subpage from the left navigation", () => {
     openSpriteAnimator();
 
-    fireEvent.click(screen.getByRole("button", { name: "四方向模板图生成" }));
-    expect(screen.getByRole("heading", { name: "四方向模板图生成" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
+    expect(screen.getByRole("heading", { name: "步行四方向" })).toBeInTheDocument();
     expect(screen.getByText("角色基准模板")).toBeInTheDocument();
-    expect(screen.getByText("步行参考")).toBeInTheDocument();
+    expect(screen.queryByText("步行参考")).not.toBeInTheDocument();
     expect(screen.getByText("步行 2x2 输出")).toBeInTheDocument();
-    expect(screen.getByText("待机参考")).toBeInTheDocument();
-    expect(screen.getByText("待机 2x2 输出")).toBeInTheDocument();
-    expect(screen.getByAltText("四方向步行参考图预览")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8787/direction-references/walk-4dir.png"
-    );
-    expect(screen.getByAltText("四方向待机参考图预览")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8787/direction-references/idle-4dir.png"
-    );
-    expect(screen.getByAltText("四方向跑步参考图预览")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8787/direction-references/run-4dir.png"
-    );
+    expect(screen.getByText("步行视频预览")).toBeInTheDocument();
+    expect(screen.queryByText("步行循环预览")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("四方向步行参考图预览")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("四方向待机参考图预览")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("四方向跑步参考图预览")).not.toBeInTheDocument();
     expect(screen.getByLabelText("上传角色基准模板")).toBeInTheDocument();
     expect(screen.getByLabelText(/四方向图像模型/i)).toHaveValue("openai/gpt-5.4-image-2");
     expect(screen.getByLabelText(/四方向图片生成尺寸/i)).toHaveValue("1024");
-    expect((screen.getByLabelText("待机系统提示词") as HTMLTextAreaElement).value).toContain("使用第一张图作为角色四方向步行参考图");
-    expect((screen.getByLabelText("待机系统提示词") as HTMLTextAreaElement).value).toContain("位置与第一张图对应方向对齐");
     expect((screen.getByLabelText("步行系统提示词") as HTMLTextAreaElement).value).toContain("动作状态：步行循环关键帧");
-    expect(screen.getByRole("button", { name: /基于步行图生成待机四方向图/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /生成步行四方向图/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /保存四方向模板配置/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
-    expect(screen.getByRole("heading", { name: "四方向步行视频" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /一键处理步行循环/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /保存步行四方向配置/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/视频模型/i)).toHaveValue("bytedance/seedance-2.0");
     expect(screen.getByRole("option", { name: /Grok Imagine Video/i })).toHaveValue("x-ai/grok-imagine-video");
     expect(screen.getByLabelText(/视频时长/i)).toHaveValue("4");
@@ -870,14 +911,20 @@ describe("App", () => {
     expect(screen.getByLabelText("视频自定义提示词")).toHaveValue("");
     expect(screen.getByLabelText("最终视频提示词")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: /保存视频配置/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "智能循环与导出" }));
-    expect(screen.getByRole("heading", { name: "智能循环与导出" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/抽帧数量/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /一键处理/i })).toBeInTheDocument();
-    expect(screen.getAllByText("待机四方向预览").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByRole("button", { name: "2 切四方向并中心化" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("帧时间轴")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "待机四方向" }));
+    expect(screen.getByRole("heading", { name: "待机四方向" })).toBeInTheDocument();
+    expect(screen.getByText("步行 2x2 基准")).toBeInTheDocument();
+    expect(screen.queryByText("待机参考")).not.toBeInTheDocument();
+    expect(screen.getByText("待机 2x2 输出")).toBeInTheDocument();
+    expect((screen.getByLabelText("待机系统提示词") as HTMLTextAreaElement).value).toContain("使用第一张图作为角色四方向步行参考图");
+    expect((screen.getByLabelText("待机系统提示词") as HTMLTextAreaElement).value).toContain("位置与第一张图对应方向对齐");
+    expect(screen.getByRole("button", { name: /基于步行图生成待机四方向图/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /一键处理待机四方向/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /保存待机四方向配置/i })).toBeInTheDocument();
+    expect(screen.getAllByText("待机四方向预览").length).toBeGreaterThanOrEqual(1);
   });
 
   it("migrates the old Seedream image default to GPT Image 2 while keeping saved keys", () => {
@@ -1003,7 +1050,7 @@ describe("App", () => {
 
   it("generates the walk sheet first, then uses that walk sheet as the idle source image", async () => {
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "四方向模板图生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
       target: { value: "sk-or-v1-web-key" }
@@ -1015,22 +1062,24 @@ describe("App", () => {
 
     expect(screen.getByAltText("角色基准模板预览")).toHaveAttribute("src", "blob:uploaded-input-preview");
 
-    fireEvent.change(screen.getByLabelText("待机自定义提示词"), {
-      target: { value: "待机更安静，手臂自然下垂。" }
-    });
     fireEvent.change(screen.getByLabelText("步行自定义提示词"), {
       target: { value: "步行幅度轻微，保持角色害羞气质。" }
     });
-    expect((screen.getByLabelText("待机最终提示词") as HTMLTextAreaElement).value).toContain("待机更安静");
     expect((screen.getByLabelText("步行最终提示词") as HTMLTextAreaElement).value).toContain("步行幅度轻微");
 
     fireEvent.click(screen.getByRole("button", { name: /生成步行四方向图/i }));
     await screen.findByAltText("步行 2x2 输出预览");
-    await waitFor(() => expect(screen.getByRole("button", { name: /基于步行图生成待机四方向图/i })).toBeEnabled());
     expect(screen.getByAltText("步行 2x2 输出预览")).toHaveAttribute(
       "src",
       expect.stringMatching(new RegExp(`http://127\\.0\\.0\\.1:8787${characterBase}/base-character/direction-templates/walk-4dir\\.png\\?v=`))
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "待机四方向" }));
+    fireEvent.change(screen.getByLabelText("待机自定义提示词"), {
+      target: { value: "待机更安静，手臂自然下垂。" }
+    });
+    expect((screen.getByLabelText("待机最终提示词") as HTMLTextAreaElement).value).toContain("待机更安静");
+    await waitFor(() => expect(screen.getByRole("button", { name: /基于步行图生成待机四方向图/i })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: /基于步行图生成待机四方向图/i }));
     await screen.findByAltText("待机 2x2 输出预览");
@@ -1058,7 +1107,7 @@ describe("App", () => {
       prompt: expect.stringContaining("待机更安静")
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /保存四方向模板配置/i }));
+    fireEvent.click(screen.getByRole("button", { name: /保存待机四方向配置/i }));
     const savedDraft = JSON.parse(String(localStorage.getItem("ai-game-workbench.sprite-animator.workflow.v5")));
     expect(savedDraft).toMatchObject({
       directionImageModel: "openai/gpt-5.4-image-2",
@@ -1085,11 +1134,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /生成基准模板/i }));
 
     await screen.findByAltText("基准模板输出预览");
-    fireEvent.click(screen.getByRole("button", { name: "四方向模板图生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
     fireEvent.click(screen.getByRole("button", { name: /生成步行四方向图/i }));
     await screen.findByAltText("步行 2x2 输出预览");
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
-    expect(screen.getByAltText("视频输入预览")).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
+    expect(screen.getByAltText("步行 2x2 输出预览")).toHaveAttribute(
       "src",
       expect.stringMatching(new RegExp(`http://127\\.0\\.0\\.1:8787${characterBase}/base-character/direction-templates/walk-4dir\\.png\\?v=`))
     );
@@ -1110,18 +1159,17 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /提交视频任务/i }));
 
     await screen.findByText(/视频已下载到 storage\/characters\/hero\/base-character\/walk-video\/source.mp4/);
-    expect(screen.getByLabelText("视频输出预览")).toHaveAttribute(
+    expect(screen.getByLabelText("帧处理视频输入预览")).toHaveAttribute(
       "src",
       `http://127.0.0.1:8787${characterBase}/base-character/walk-video/source.mp4`
     );
-    fireEvent.click(screen.getByRole("button", { name: "智能循环与导出" }));
     expect(screen.getByLabelText("帧处理视频输入预览")).toHaveAttribute(
       "src",
       `http://127.0.0.1:8787${characterBase}/base-character/walk-video/source.mp4`
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /一键处理/i }));
-    await screen.findByText(/四方向处理完成/);
+    fireEvent.click(screen.getByRole("button", { name: /一键处理步行循环/i }));
+    await screen.findByText(/步行四方向处理完成/);
     expect(screen.getByText("四方向最终循环预览")).toBeInTheDocument();
     expect(screen.queryByLabelText("帧时间轴")).not.toBeInTheDocument();
 
@@ -1144,7 +1192,7 @@ describe("App", () => {
 
   it("allows video generation to upload a first frame directly in the second stage", async () => {
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
       target: { value: "sk-or-v1-web-key" }
@@ -1155,7 +1203,7 @@ describe("App", () => {
     });
 
     await screen.findByText(/四方向步行图已保存/);
-    expect(screen.getByAltText("视频输入预览")).toHaveAttribute("src", "blob:uploaded-input-preview");
+    expect(screen.getByAltText("步行 2x2 输出预览")).toHaveAttribute("src", "blob:uploaded-input-preview");
 
     fireEvent.change(screen.getByLabelText(/视频模型/i), {
       target: { value: "x-ai/grok-imagine-video" }
@@ -1197,7 +1245,7 @@ describe("App", () => {
       }
     };
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
       target: { value: "sk-or-v1-web-key" }
@@ -1216,10 +1264,10 @@ describe("App", () => {
 
   it("runs four-direction loop processing from an uploaded local video", async () => {
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "智能循环与导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     const file = new File(["local-video"], "local-source.mp4", { type: "video/mp4" });
-    fireEvent.change(screen.getByLabelText("上传帧处理视频"), {
+    fireEvent.change(screen.getByLabelText("上传步行视频"), {
       target: { files: [file] }
     });
 
@@ -1235,20 +1283,12 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "4 抠图预览" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("帧时间轴")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /一键处理/i }));
+    fireEvent.click(screen.getByRole("button", { name: /一键处理步行循环/i }));
 
-    await screen.findByText(/四方向处理完成/);
+    await screen.findByText(/步行四方向处理完成/);
     expect(screen.getByAltText("下方向最终循环预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/loop-export/transparent/down/frame_002.png`)
-    );
-    expect(screen.getByAltText("待机四方向预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
-    );
-    expect(screen.getByAltText("下方向待机预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/idle/transparent/down.png`)
     );
     expect(screen.getByText("四方向最终循环预览")).toBeInTheDocument();
     expect(screen.getAllByText("下方向").length).toBeGreaterThan(0);
@@ -1258,10 +1298,6 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: /导出走路 Sprite Sheet/i })).toHaveAttribute(
       "href",
       expect.stringContaining(`${characterBase}/base-character/loop-export/exports/sprite-sheet.png`)
-    );
-    expect(screen.getByRole("link", { name: /导出待机 Sprite Sheet/i })).toHaveAttribute(
-      "href",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
     );
     expect(screen.getByRole("link", { name: /导出透明帧 ZIP/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /导出 GIF/i })).toBeInTheDocument();
@@ -1277,20 +1313,52 @@ describe("App", () => {
     });
   });
 
+  it("runs idle processing from the idle four-direction page after walk processing exists", async () => {
+    openSpriteAnimator();
+    fireEvent.click(screen.getByRole("button", { name: "待机四方向" }));
+
+    const processIdleButton = screen.getByRole("button", { name: /一键处理待机四方向/i });
+    await waitFor(() => {
+      expect(processIdleButton).not.toBeDisabled();
+    });
+    fireEvent.click(processIdleButton);
+
+    await screen.findByText(/待机四方向处理完成/);
+    expect(screen.getByAltText("待机四方向预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
+    );
+    expect(screen.getByAltText("下方向待机预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/loop-export/idle/transparent/down.png`)
+    );
+    expect(screen.getByRole("link", { name: /导出待机 Sprite Sheet/i })).toHaveAttribute(
+      "href",
+      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
+    );
+
+    const idleProcessCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/processing/idle-four-direction"));
+    expect(JSON.parse(String(idleProcessCall?.[1]?.body))).toMatchObject({
+      characterId: "hero",
+      keyColor: "#00ff00",
+      tolerance: 255
+    });
+  });
+
   it("shows a controlled fallback instead of oversized alt text when an image preview fails", async () => {
     openSpriteAnimator();
 
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
     const file = new File(["walk-sheet"], "walk-2x2.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("上传四方向步行图"), {
       target: { files: [file] }
     });
 
-    const videoInput = await screen.findByAltText("视频输入预览");
+    const videoInput = await screen.findByAltText("步行 2x2 输出预览");
     fireEvent.error(videoInput);
 
     await waitFor(() => {
-      expect(screen.queryByAltText("视频输入预览")).not.toBeInTheDocument();
+      expect(screen.queryByAltText("步行 2x2 输出预览")).not.toBeInTheDocument();
     });
     expect(screen.getAllByText("预览加载失败").length).toBeGreaterThan(0);
   });
@@ -1366,6 +1434,7 @@ describe("App", () => {
       videoCustomPrompt: "后端视频自定义提示词"
     });
     expect(JSON.parse(String(saveCall?.[1]?.body))).not.toHaveProperty("openRouterApiKey");
+    expect(Object.keys(JSON.parse(String(saveCall?.[1]?.body))).filter((key) => key.endsWith("DefaultVersion"))).toEqual([]);
     expect(screen.getByText(/基准模板配置已保存到后端/)).toBeInTheDocument();
   });
 
@@ -1387,7 +1456,7 @@ describe("App", () => {
 
   it("saves edited video generation config from the second stage", async () => {
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     fireEvent.change(screen.getByLabelText(/视频模型/i), {
       target: { value: "kwaivgi/kling-v3.0-pro" }
@@ -1407,7 +1476,7 @@ describe("App", () => {
 
     cleanup();
     openSpriteAnimator();
-    fireEvent.click(screen.getByRole("button", { name: "四方向步行视频" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
     expect(screen.getByLabelText(/视频模型/i)).toHaveValue("kwaivgi/kling-v3.0-pro");
     expect(screen.getByLabelText(/视频时长/i)).toHaveValue("3");

@@ -78,6 +78,128 @@ describe("processing route", () => {
     await app.close();
   });
 
+  it("keeps idle export out of four-direction walk processing", async () => {
+    const storageDir = makeStorageDir();
+    const ffmpegPath = resolveDefaultFfmpegPath();
+    const app = createApp({
+      ffmpegPath,
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+
+    const videoDir = join(storageDir, "characters", "hero", "base-character", "walk-video");
+    mkdirSync(videoDir, { recursive: true });
+    await createTestFourDirectionVideo(ffmpegPath, join(videoDir, "source.mp4"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/four-direction",
+      payload: {
+        jobId: "walk-video",
+        characterId: "hero",
+        frameCount: 4,
+        keyColor: "#00ff00",
+        tolerance: 8,
+        minLoopFrames: 2,
+        maxLoopFrames: 4,
+        exportFrameSize: 64,
+        fps: 12
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).not.toHaveProperty("idle");
+    expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "exports", "sprite-sheet.png"))).toBe(true);
+    expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "exports", "idle-4dir-sprite-sheet.png"))).toBe(false);
+
+    await app.close();
+  });
+
+  it("requires walk loop export before idle four-direction processing", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+
+    const templateDir = join(storageDir, "characters", "hero", "base-character", "direction-templates");
+    mkdirSync(templateDir, { recursive: true });
+    writeFileSync(join(templateDir, "idle-4dir.png"), await createTestIdleSheet());
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/idle-four-direction",
+      payload: {
+        characterId: "hero",
+        keyColor: "#00ff00",
+        tolerance: 8
+      }
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error).toContain("loop-export");
+
+    await app.close();
+  });
+
+  it("processes idle four-direction sheet using the walk loop export alignment", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+
+    const templateDir = join(storageDir, "characters", "hero", "base-character", "direction-templates");
+    mkdirSync(templateDir, { recursive: true });
+    writeFileSync(join(templateDir, "idle-4dir.png"), await createTestIdleSheet());
+    await writeWalkTransparentReferences(storageDir, "hero");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/processing/idle-four-direction",
+      payload: {
+        characterId: "hero",
+        keyColor: "#00ff00",
+        tolerance: 8
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      frames: expect.arrayContaining([
+        expect.objectContaining({
+          key: "down",
+          url: "/characters/hero/base-character/loop-export/idle/transparent/down.png"
+        })
+      ]),
+      spriteSheetUrl: "/characters/hero/base-character/loop-export/exports/idle-4dir-sprite-sheet.png"
+    });
+    expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "idle", "transparent", "down.png"))).toBe(true);
+    expect(existsSync(join(storageDir, "characters", "hero", "base-character", "loop-export", "exports", "idle-4dir-sprite-sheet.png"))).toBe(true);
+
+    await app.close();
+  });
+
   it("looks for advanced action source videos in the selected character advanced folder", async () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
@@ -420,6 +542,21 @@ describe("processing route", () => {
       expect(selectedFrameNumbers.at(-1)).toBe(20);
     }
 
+    const transparentDir = join(storageDir, "characters", "hero", "advanced-character", "attack-1", "export", "transparent", "down");
+    const transparentFiles = readdirSync(transparentDir)
+      .filter((fileName) => fileName.endsWith(".png"))
+      .sort();
+    const boxes = await Promise.all(transparentFiles
+      .map((fileName) => getAlphaBox(readFileSync(join(transparentDir, fileName)))));
+    const maxHeight = Math.max(...boxes.map((box) => box?.height ?? 0));
+    const firstHeight = boxes[0]?.height ?? 0;
+    const metadata = await sharp(join(transparentDir, transparentFiles[0] ?? "")).metadata();
+    expect(metadata.width).toBe(256);
+    expect(metadata.height).toBe(256);
+    expect(firstHeight).toBeGreaterThanOrEqual(145);
+    expect(firstHeight).toBeLessThanOrEqual(175);
+    expect(maxHeight).toBeGreaterThanOrEqual(150);
+
     await app.close();
   });
 
@@ -525,7 +662,20 @@ describe("processing route", () => {
     expect(metadata.width).toBe(512);
     expect(metadata.height).toBe(512);
     const alphaBox = await getAlphaBox(readFileSync(outputFramePath));
-    expect(alphaBox?.height).toBeLessThan(480);
+    const firstFrameBox = await getAlphaBox(readFileSync(join(
+      storageDir,
+      "characters",
+      "hero",
+      "advanced-character",
+      "attack-1",
+      "export",
+      "transparent",
+      "down",
+      "frame_001.png"
+    )));
+    expect(firstFrameBox?.height).toBeGreaterThanOrEqual(440);
+    expect(firstFrameBox?.height).toBeLessThanOrEqual(480);
+    expect(alphaBox?.height).toBeLessThanOrEqual(metadata.height ?? 0);
 
     await app.close();
   });
@@ -869,6 +1019,15 @@ async function writeTallIdleTransparentReferences(storageDir: string, characterI
   mkdirSync(directionDir, { recursive: true });
   for (const direction of ["down", "up", "left", "right"]) {
     writeFileSync(join(directionDir, `${direction}.png`), await createTransparentReferenceFrame({ subjectHeight: 230 }));
+  }
+}
+
+async function writeWalkTransparentReferences(storageDir: string, characterId: string): Promise<void> {
+  const directions = ["down", "up", "left", "right"];
+  for (const direction of directions) {
+    const directionDir = join(storageDir, "characters", characterId, "base-character", "loop-export", "transparent", direction);
+    mkdirSync(directionDir, { recursive: true });
+    writeFileSync(join(directionDir, "frame_001.png"), await createTransparentReferenceFrame());
   }
 }
 

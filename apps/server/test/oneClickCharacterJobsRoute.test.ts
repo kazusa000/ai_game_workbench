@@ -106,7 +106,8 @@ describe("one-click character jobs route", () => {
     expect(started.job.steps).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "base-template", label: expect.any(String), status: expect.any(String) }),
       expect.objectContaining({ id: "walk-video", label: expect.any(String), status: expect.any(String) }),
-      expect.objectContaining({ id: "loop-export", label: expect.any(String), status: expect.any(String) })
+      expect.objectContaining({ id: "walk-loop-export", label: expect.any(String), status: expect.any(String) }),
+      expect.objectContaining({ id: "idle-loop-export", label: expect.any(String), status: expect.any(String) })
     ]));
 
     const statusResponse = await app.inject({

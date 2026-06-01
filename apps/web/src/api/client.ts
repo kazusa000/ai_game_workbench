@@ -59,6 +59,8 @@ export interface CreateVideoGenerationInput {
   model: string;
   prompt: string;
   firstFrameUrl: string;
+  lastFrameUrl?: string;
+  referenceOnly?: boolean;
   inputReferenceUrls?: string[];
   durationSeconds?: number;
   resolution?: string;
@@ -177,6 +179,34 @@ export interface ProcessFourDirectionResult {
     frames: IdleDirectionProcessingFrame[];
     spriteSheetUrl?: string;
   };
+}
+
+export interface ProcessIdleFourDirectionInput {
+  characterId: string;
+  keyColor: string;
+  tolerance: number;
+}
+
+export interface ProcessIdleFourDirectionResult {
+  frames: IdleDirectionProcessingFrame[];
+  spriteSheetUrl?: string;
+}
+
+export interface CreateGodotExportInput {
+  characterId: string;
+  exportSize: 256 | 384 | 512 | 1024;
+}
+
+export interface GodotExportResult {
+  characterId: string;
+  exportSize: 256 | 384 | 512 | 1024;
+  exportedActions: string[];
+  animationCount: number;
+  exportRootPath?: string;
+  exportRootUrl: string;
+  manifestUrl: string;
+  importScriptUrl: string;
+  zipUrl: string;
 }
 
 export interface GenerationRequestOptions {
@@ -573,6 +603,34 @@ export async function processFourDirectionVideo(input: ProcessFourDirectionInput
     throw new Error(await readErrorMessage(response, `四方向循环处理失败：${response.status}`));
   }
   return response.json() as Promise<ProcessFourDirectionResult>;
+}
+
+export async function processIdleFourDirection(input: ProcessIdleFourDirectionInput): Promise<ProcessIdleFourDirectionResult> {
+  const response = await fetch(`${API_BASE}/api/processing/idle-four-direction`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `待机四方向处理失败：${response.status}`));
+  }
+  return response.json() as Promise<ProcessIdleFourDirectionResult>;
+}
+
+export async function createGodotExport(input: CreateGodotExportInput): Promise<GodotExportResult> {
+  const response = await fetch(`${API_BASE}/api/export/godot`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Godot 导出失败：${response.status}`));
+  }
+  return response.json() as Promise<GodotExportResult>;
 }
 
 export async function prepareAdvancedActionStartFrame(input: PrepareAdvancedActionStartFrameInput): Promise<UploadedAsset> {

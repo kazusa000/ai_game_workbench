@@ -9,6 +9,8 @@ coverage/
 !.env.example
 
 storage/
+Export/
+apps/server/output/
 tmp/
 logs/
 test_api_and_image/

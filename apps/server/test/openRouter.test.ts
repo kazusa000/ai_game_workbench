@@ -208,17 +208,63 @@ describe("buildVideoGenerationPayload", () => {
       model: "bytedance/seedance-2.0",
       prompt: "2D character attack action",
       firstFrameUrl: "https://example.com/attack-start.png",
+      lastFrameUrl: "https://example.com/attack-end.png",
       inputReferenceUrls: [
         "https://example.com/weapon-reference.png",
         "   "
       ]
     });
 
+    expect(payload.frame_images).toEqual([
+      {
+        type: "image_url",
+        image_url: {
+          url: "https://example.com/attack-start.png"
+        },
+        frame_type: "first_frame"
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: "https://example.com/attack-end.png"
+        },
+        frame_type: "last_frame"
+      }
+    ]);
     expect(payload.input_references).toEqual([
       {
         type: "image_url",
         image_url: {
           url: "https://example.com/weapon-reference.png"
+        }
+      }
+    ]);
+  });
+
+  it("can submit reference-only video payloads without frame images", () => {
+    const payload = buildVideoGenerationPayload({
+      model: "bytedance/seedance-2.0",
+      prompt: "Use the first reference as start/end and the second as attack middle pose",
+      firstFrameUrl: "https://example.com/attack-start.png",
+      referenceOnly: true,
+      inputReferenceUrls: [
+        "https://example.com/attack-start.png",
+        "https://example.com/attack-middle.png"
+      ]
+    });
+
+    expect(payload).not.toHaveProperty("frame_images");
+    expect(payload.input_references).toEqual([
+      {
+        type: "image_url",
+        image_url: {
+          url: "https://example.com/attack-start.png"
+        }
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: "https://example.com/attack-middle.png"
         }
       }
     ]);

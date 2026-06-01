@@ -78,7 +78,8 @@ const REQUIRED_BASE_STEP_IDS = [
   "walk-4dir",
   "idle-4dir",
   "walk-video",
-  "loop-export"
+  "walk-loop-export",
+  "idle-loop-export"
 ] as const;
 
 export function registerOneClickCharacterRoutes(app: FastifyInstance, config: OneClickCharacterRouteConfig): void {
@@ -255,7 +256,8 @@ function buildSteps(actions: { run: boolean; attack1: boolean; jump: boolean }):
     { id: "walk-4dir", label: "生成步行四方向图", status: "pending" },
     { id: "idle-4dir", label: "生成待机四方向图", status: "pending" },
     { id: "walk-video", label: "生成四方向步行视频", status: "pending" },
-    { id: "loop-export", label: "智能循环与导出", status: "pending" }
+    { id: "walk-loop-export", label: "处理步行四方向循环", status: "pending" },
+    { id: "idle-loop-export", label: "处理待机四方向", status: "pending" }
   ];
   if (actions.run) {
     steps.push(
@@ -266,17 +268,17 @@ function buildSteps(actions: { run: boolean; attack1: boolean; jump: boolean }):
   }
   if (actions.attack1) {
     steps.push(
-      { id: "attack-start", label: "准备攻击动作1起始帧", status: "pending" },
-      { id: "attack-midframe", label: "生成攻击动作1中间帧", status: "pending" },
-      { id: "attack-video", label: "生成攻击动作1视频", status: "pending" },
-      { id: "attack-export", label: "处理攻击动作1导出", status: "pending" }
+      { id: "attack-start", label: "准备攻击四方向1起始帧", status: "pending" },
+      { id: "attack-midframe", label: "生成攻击四方向1中间帧", status: "pending" },
+      { id: "attack-video", label: "生成攻击四方向1视频", status: "pending" },
+      { id: "attack-export", label: "处理攻击四方向1导出", status: "pending" }
     );
   }
   if (actions.jump) {
     steps.push(
       { id: "jump-start", label: "准备跳跃起始帧", status: "pending" },
-      { id: "jump-video", label: "生成跳跃动作视频", status: "pending" },
-      { id: "jump-export", label: "处理跳跃动作导出", status: "pending" }
+      { id: "jump-video", label: "生成跳跃四方向视频", status: "pending" },
+      { id: "jump-export", label: "处理跳跃四方向导出", status: "pending" }
     );
   }
   return steps;
@@ -398,8 +400,12 @@ async function runDefaultOneClickJob(
     resolution: videoResolution,
     characterId: input.characterId
   }));
-  await runRequiredStep(context, "loop-export", async () => processBaseLoop(app, workflow, {
+  await runRequiredStep(context, "walk-loop-export", async () => processBaseLoop(app, workflow, {
     jobId: walkJobId,
+    characterId: input.characterId,
+    keyColor
+  }));
+  await runRequiredStep(context, "idle-loop-export", async () => processIdleLoop(app, workflow, {
     characterId: input.characterId,
     keyColor
   }));
@@ -466,7 +472,11 @@ async function runDefaultOneClickJob(
       const attackJobId = await runStep(context, "attack-video", async () => submitVideoAndPoll(app, {
         apiKey: input.apiKey,
         firstFrameUrl: requirePublicUrl(attackStart, input.publicAssetBaseUrl),
-        inputReferenceUrls: [requirePublicUrl(middle)],
+        referenceOnly: true,
+        inputReferenceUrls: [
+          requirePublicUrl(attackStart, input.publicAssetBaseUrl),
+          requirePublicUrl(middle)
+        ],
         prompt: requireConfigString(workflow, "finalAdvancedAttackPrompt", "攻击视频提示词"),
         model: videoModel,
         durationSeconds: videoDurationSeconds,
@@ -569,6 +579,8 @@ async function submitVideoAndPoll(
   input: {
     apiKey: string;
     firstFrameUrl: string;
+    lastFrameUrl?: string;
+    referenceOnly?: boolean;
     inputReferenceUrls?: string[];
     prompt: string;
     model: string;
@@ -586,6 +598,8 @@ async function submitVideoAndPoll(
       model: input.model,
       prompt: input.prompt,
       firstFrameUrl: input.firstFrameUrl,
+      lastFrameUrl: input.lastFrameUrl,
+      referenceOnly: input.referenceOnly,
       inputReferenceUrls: input.inputReferenceUrls,
       durationSeconds: input.durationSeconds,
       resolution: input.resolution
@@ -629,6 +643,22 @@ async function processBaseLoop(
   });
 }
 
+async function processIdleLoop(
+  app: FastifyInstance,
+  workflow: Record<string, unknown>,
+  input: { characterId: string; keyColor: string }
+) {
+  return injectJson(app, {
+    method: "POST",
+    url: "/api/processing/idle-four-direction",
+    payload: {
+      characterId: input.characterId,
+      keyColor: input.keyColor,
+      tolerance: readNumber(workflow, "tolerance", 255)
+    }
+  });
+}
+
 async function prepareActionStart(
   app: FastifyInstance,
   workflow: Record<string, unknown>,
@@ -641,7 +671,7 @@ async function prepareActionStart(
       characterId: input.characterId,
       actionKind: input.actionKind,
       keyColor: input.keyColor,
-      tolerance: readNumber(workflow, "tolerance", 8),
+      tolerance: readNumber(workflow, "tolerance", 255),
       scale: input.actionKind === "attack-1"
         ? readNumber(workflow, "advancedAttackStartScale", 0.74)
         : readNumber(workflow, "advancedJumpStartScale", 0.78)
@@ -674,7 +704,7 @@ function buildProcessingPayload(
     characterId: input.characterId,
     frameCount: readNumber(workflow, "frameCount", 120),
     keyColor: input.keyColor,
-    tolerance: readNumber(workflow, "tolerance", 8),
+    tolerance: readNumber(workflow, "tolerance", 255),
     minLoopFrames: readNumber(workflow, "minLoopFrames", 12),
     maxLoopFrames: readNumber(workflow, "maxLoopFrames", 60),
     exportFrameSize: readNumber(workflow, "exportFrameSize", 1024),

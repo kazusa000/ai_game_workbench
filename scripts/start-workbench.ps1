@@ -26,10 +26,14 @@ function Resolve-NgrokExe {
   throw "ngrok.exe was not found. Install ngrok or put ngrok.exe at $localExe"
 }
 
-function Test-HttpOk([string]$Url) {
+function Test-WorkbenchApi([int]$Port) {
   try {
-    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
-    return [int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 500
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:${Port}/api/health" -Method Get -TimeoutSec 3
+    if (-not $health.ok) {
+      return $false
+    }
+    $characters = Invoke-RestMethod -Uri "http://127.0.0.1:${Port}/api/characters" -Method Get -TimeoutSec 3
+    return $null -ne $characters.PSObject.Properties["characters"]
   } catch {
     return $false
   }
@@ -108,10 +112,13 @@ if ($Check) {
   exit 0
 }
 
-if (-not (Test-HttpOk "http://127.0.0.1:${ServerPort}/api/health")) {
+if (-not (Test-WorkbenchApi $ServerPort)) {
+  if (Test-TcpPort $ServerPort) {
+    throw "Port $ServerPort is already in use, but it is not the AI Game Workbench API. Stop the process using that port or start the workbench with a different -ServerPort."
+  }
   $env:PUBLIC_ASSET_BASE_URL = $publicAssetBaseUrl
   Start-WorkbenchProcess "server" $npmCmd @("run", "dev:server") | Out-Null
-  Wait-Until { Test-HttpOk "http://127.0.0.1:${ServerPort}/api/health" } "server"
+  Wait-Until { Test-WorkbenchApi $ServerPort } "server"
 } else {
   Write-Host "Server is already running: http://127.0.0.1:$ServerPort"
 }

@@ -22,6 +22,7 @@ npm test
 npm run typecheck
 npm run build
 npm run test:launcher
+npm run test:workbench-startup
 npm run build:launcher
 npm run test -w apps/server
 npm run test -w apps/web

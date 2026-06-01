@@ -16,6 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build:launcher": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1",
     "test:launcher": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-launcher.ps1",
+    "test:workbench-startup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-workbench-startup.ps1",
     "e2e:openrouter": "tsx scripts/run-openrouter-pipeline.ts"
   },
   "devDependencies": {

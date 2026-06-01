@@ -53,6 +53,29 @@ npm run dev:web
 Server: `http://127.0.0.1:8787`  
 Web: Vite prints its local URL when started.
 
+## One-Click Windows Launcher
+
+Double-click:
+
+```text
+tools\launcher\release\AiGameWorkbenchLauncher.exe
+```
+
+The launcher runs `scripts/start-workbench.ps1 -OpenBrowser`, which starts or reuses the API server, Vite web server, and the configured ngrok tunnel, then opens the workbench page.
+
+Advanced script arguments can be passed to the exe. For example:
+
+```powershell
+tools\launcher\release\AiGameWorkbenchLauncher.exe -NoNgrok
+tools\launcher\release\AiGameWorkbenchLauncher.exe -Check -NoNgrok
+```
+
+Rebuild the exe after changing launcher source:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-launcher.ps1
+```
+
 `npm run dev:workbench` starts or reuses the API server, Vite web server, and the configured ngrok tunnel together. By default it uses `https://darn-skittle-unwoven.ngrok-free.dev` as the public asset base for uploaded first-frame images. Override it when needed:
 
 ```powershell

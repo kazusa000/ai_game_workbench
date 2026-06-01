@@ -21,6 +21,8 @@ Use the narrowest verification command that covers the change:
 npm test
 npm run typecheck
 npm run build
+npm run test:launcher
+npm run build:launcher
 npm run test -w apps/server
 npm run test -w apps/web
 npm run test -w packages/core

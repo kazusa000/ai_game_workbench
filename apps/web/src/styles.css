@@ -202,51 +202,20 @@ h2 {
 .module01-page-stage {
   display: grid;
   gap: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 .module01-page-body {
   display: grid;
   gap: 14px;
-}
-
-.module01-status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
-}
-
-.module01-status-item {
-  border: 1px solid #384255;
-  border-radius: 8px;
-  background: #10151d;
-  padding: 9px 10px;
-  display: grid;
-  gap: 4px;
-}
-
-.module01-status-item span {
-  color: #9dacbd;
-  font-size: 12px;
-}
-
-.module01-status-item strong {
-  color: #f4f0de;
-  font-size: 13px;
-}
-
-.module01-status-missing strong {
-  color: #ffb5a8;
-}
-
-.module01-status-running strong {
-  color: #68e1fd;
-}
-
-.module01-status-done strong {
-  color: #9be59b;
+  width: 100%;
+  min-width: 0;
 }
 
 .module01-action-section {
+  width: 100%;
+  min-width: 0;
   border: 1px solid #384255;
   border-radius: 8px;
   background: #111822;
@@ -440,6 +409,8 @@ h2 {
 
 .main-stage {
   padding: 22px;
+  width: 100%;
+  min-width: 0;
 }
 
 .tool-header {
@@ -518,9 +489,13 @@ h2 {
 .workflow-stack {
   display: grid;
   gap: 18px;
+  width: 100%;
+  min-width: 0;
 }
 
 .workflow-stage {
+  width: 100%;
+  min-width: 0;
   border: 2px solid #303947;
   border-radius: 8px;
   background: rgba(27, 32, 41, .96);

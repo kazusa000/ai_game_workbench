@@ -839,25 +839,29 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "步行" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "步行图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "步行视频与一键处理" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "步行结果" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "步行结果" })).not.toBeInTheDocument();
+    expect(screen.getByText("步行预览与导出")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "跑步" }));
     expect(screen.getByRole("heading", { name: "跑步" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跑步图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跑步视频与一键处理" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "跑步结果" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "跑步结果" })).not.toBeInTheDocument();
+    expect(screen.getByText("跑步导出")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "攻击 1" }));
     expect(screen.getByRole("heading", { name: "攻击 1" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "攻击 1 图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "攻击 1 视频与一键处理" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "攻击 1 结果" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "攻击 1 结果" })).not.toBeInTheDocument();
+    expect(screen.getByText("攻击 1 导出")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "跳跃" }));
     expect(screen.getByRole("heading", { name: "跳跃" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跳跃图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跳跃视频与一键处理" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "跳跃结果" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "跳跃结果" })).not.toBeInTheDocument();
+    expect(screen.getByText("跳跃导出")).toBeInTheDocument();
   });
 
   it("keeps one-click generation focused on launch and progress", () => {
@@ -1313,9 +1317,8 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /生成待机 2x2/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /一键处理/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /保存待机配置/i })).toBeInTheDocument();
-    const idleResultSection = screen.getByRole("region", { name: "待机结果" });
-    expect(within(idleResultSection).getByText("待机 Sprite Sheet")).toBeInTheDocument();
-    expect(within(idleResultSection).getByText("待机处理状态")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "待机结果" })).not.toBeInTheDocument();
+    expect(screen.getByText("待机预览与导出")).toBeInTheDocument();
   });
 
   it("migrates an unavailable image default to APIMart without restoring browser keys", () => {

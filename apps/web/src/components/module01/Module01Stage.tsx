@@ -1,20 +1,12 @@
 import type { ReactNode } from "react";
 
-export interface Module01StatusItem {
-  label: string;
-  value: string;
-  state?: "ready" | "missing" | "running" | "done";
-}
-
 export function Module01PageStage({
   title,
   status,
-  statusItems,
   children
 }: {
   title: string;
   status: string;
-  statusItems?: readonly Module01StatusItem[];
   children: ReactNode;
 }) {
   return (
@@ -23,16 +15,6 @@ export function Module01PageStage({
         <h2>{title}</h2>
         <span>{status}</span>
       </div>
-      {statusItems?.length ? (
-        <div className="module01-status-grid">
-          {statusItems.map((item) => (
-            <div className={`module01-status-item module01-status-${item.state ?? "ready"}`} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </div>
-      ) : null}
       <div className="module01-page-body">{children}</div>
     </section>
   );

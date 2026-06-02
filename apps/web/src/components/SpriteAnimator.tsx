@@ -2534,11 +2534,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             <Module01PageStage
               title="步行"
               status={`${directionTemplateStatus} / ${videoStatus} / ${frameStatus}`}
-              statusItems={[
-                { label: "基准模板", value: effectiveDirectionBaseTemplatePreview ? "已准备" : "缺少", state: effectiveDirectionBaseTemplatePreview ? "ready" : "missing" },
-                { label: "步行图片", value: walkDirectionOutputPreview || videoInputPreview ? "已准备" : "缺少", state: walkDirectionOutputPreview || videoInputPreview ? "ready" : "missing" },
-                { label: "步行结果", value: fourDirectionResult?.directions.length ? "已处理" : "未处理", state: fourDirectionResult?.directions.length ? "done" : "missing" }
-              ]}
             >
               <Module01ActionSection title="步行图片">
                 <Module01MediaGrid>
@@ -2762,9 +2757,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <Save size={16} /> 保存视频配置
                   </button>
                 </Module01AdvancedDetails>
-              </Module01ActionSection>
-              <Module01ActionSection title="步行结果">
-                <FourDirectionResultPanel result={fourDirectionResult} frameIndex={activeFrameIndex} isPlaying={isPlayingFrames} />
+                <Module01AdvancedDetails title="步行预览与导出">
+                  <FourDirectionResultPanel result={fourDirectionResult} frameIndex={activeFrameIndex} isPlaying={isPlayingFrames} />
+                </Module01AdvancedDetails>
               </Module01ActionSection>
             </Module01PageStage>
           ) : null}
@@ -2773,11 +2768,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             <Module01PageStage
               title="待机"
               status={`${directionTemplateStatus} / ${frameStatus}`}
-              statusItems={[
-                { label: "步行图片", value: walkDirectionOutputPreview || videoInputPreview ? "已准备" : "缺少", state: walkDirectionOutputPreview || videoInputPreview ? "ready" : "missing" },
-                { label: "待机图片", value: idleDirectionOutputPreview ? "已准备" : "缺少", state: idleDirectionOutputPreview ? "ready" : "missing" },
-                { label: "待机结果", value: fourDirectionResult?.idle ? "已处理" : "未处理", state: fourDirectionResult?.idle ? "done" : "missing" }
-              ]}
             >
               <Module01ActionSection title="待机图片">
                 <Module01MediaGrid>
@@ -2863,26 +2853,19 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     </label>
                   </div>
                 </Module01AdvancedDetails>
-              </Module01ActionSection>
-              <Module01ActionSection title="待机结果">
-                <Module01MediaGrid>
-                  <MediaPane title="待机 Sprite Sheet">
-                    <IdleSpriteSheetPreview idle={fourDirectionResult?.idle} />
-                  </MediaPane>
-                  <MediaPane title="待机处理状态">
-                    <EmptyMedia label={fourDirectionResult?.idle ? "待机已处理" : "等待待机处理"} />
-                  </MediaPane>
-                </Module01MediaGrid>
-                <section className="loop-result-section">
-                  <div className="loop-section-heading">
-                    <h3>待机处理结果</h3>
-                    <span>{fourDirectionResult?.idle ? "已按步行导出规格对齐" : "等待待机一键处理"}</span>
+                <Module01AdvancedDetails title="待机预览与导出">
+                  <Module01MediaGrid>
+                    <MediaPane title="待机 Sprite Sheet">
+                      <IdleSpriteSheetPreview idle={fourDirectionResult?.idle} />
+                    </MediaPane>
+                    <MediaPane title="待机方向预览">
+                      <IdleDirectionPreviewGrid idle={fourDirectionResult?.idle} />
+                    </MediaPane>
+                  </Module01MediaGrid>
+                  <div className="control-row">
+                    <DownloadLink href={fourDirectionResult?.idle?.spriteSheetUrl} label="导出待机 Sprite Sheet" />
                   </div>
-                  <IdleDirectionPreviewGrid idle={fourDirectionResult?.idle} />
-                </section>
-                <div className="control-row">
-                  <DownloadLink href={fourDirectionResult?.idle?.spriteSheetUrl} label="导出待机 Sprite Sheet" />
-                </div>
+                </Module01AdvancedDetails>
               </Module01ActionSection>
             </Module01PageStage>
           ) : null}
@@ -3329,7 +3312,18 @@ function AdvancedActionStage({
   onChangeAttackMidframeCustomPrompt?: (prompt: string) => void;
   onSaveConfig: () => void;
 }) {
-  const mediaPanes = actionKind === "run"
+  const sectionTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
+  const labelTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
+  const processedPreview = result?.directions.length ? (
+    <DirectionPreviewGrid
+      directions={result.directions}
+      frameIndex={0}
+      frameSelector={(direction) => direction.transparentFrames}
+      imageAltSuffix={`${title}处理预览`}
+      showLoopInfo
+    />
+  ) : <EmptyMedia label={`等待${title}一键处理`} />;
+  const imagePanes = actionKind === "run"
     ? [
         {
           title: "步行 2x2 基准",
@@ -3338,121 +3332,102 @@ function AdvancedActionStage({
         {
           title: "跑步首帧",
           content: <ImagePreview alt="跑步首帧预览" preview={keyframePreview ?? inputPreview ?? null} emptyLabel="等待跑步首帧" />
-        },
-        {
-          title: "跑步视频",
-          content: <VideoPreview label="跑步视频预览" preview={outputPreview ?? null} emptyLabel="等待跑步视频" />
         }
       ]
     : [
         {
-          title: actionKind === "attack-1" ? "攻击起始帧" : "跳跃视频",
+          title: "待机 2x2 基准",
+          content: <ImagePreview alt="待机 2x2 基准预览" preview={baseInputPreview ?? null} emptyLabel="等待待机 2x2" />
+        },
+        {
+          title: actionKind === "attack-1" ? "攻击起始帧" : "跳跃起始帧",
           content: actionKind === "attack-1"
             ? <ImagePreview alt="攻击 1 起始帧预览" preview={inputPreview ?? null} emptyLabel="等待攻击起始帧" />
-            : <VideoPreview label="跳跃视频预览" preview={outputPreview ?? null} emptyLabel="等待跳跃视频" />
+            : <ImagePreview alt="跳跃起始帧预览" preview={inputPreview ?? null} emptyLabel="等待跳跃起始帧" />
         },
         ...(actionKind === "attack-1" ? [{
           title: "攻击中间帧",
           content: <ImagePreview alt="攻击 1 中间帧预览" preview={middleFramePreview ?? null} emptyLabel="等待攻击中间帧" />
-        }] : []),
-        {
-          title: actionKind === "attack-1" ? "攻击视频" : "动作输出",
-          content: actionKind === "attack-1"
-            ? <VideoPreview label="攻击 1 视频预览" preview={outputPreview ?? null} emptyLabel="等待攻击视频" />
-            : result ? <DirectionPreviewGrid directions={result.directions} frameIndex={0} frameSelector={(direction) => direction.transparentFrames} imageAltSuffix="跳跃预览" showLoopInfo /> : <EmptyMedia label="等待动作处理结果" />
-        }
+        }] : [])
       ];
 
-  const primaryPromptPrefix = actionKind === "run" ? "跑步首帧" : "视频";
-  const sectionTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
-  const labelTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
-
   return (
-    <Module01PageStage
-      title={title}
-      status={status}
-      statusItems={[
-        { label: "输入", value: baseInputPreview || inputPreview ? "已准备" : "缺少", state: baseInputPreview || inputPreview ? "ready" : "missing" },
-        { label: "视频", value: outputPreview ? "已生成" : "未生成", state: outputPreview ? "done" : "missing" },
-        { label: "结果", value: result?.directions.length ? "已处理" : "未处理", state: result?.directions.length ? "done" : "missing" }
-      ]}
-    >
+    <Module01PageStage title={title} status={status}>
       <Module01ActionSection title={sectionTitle("图片")}>
-        <Module01MediaGrid columns={mediaPanes.length >= 3 ? 3 : 2}>
-          {mediaPanes.map((pane) => (
+        <Module01MediaGrid columns={imagePanes.length >= 3 ? 3 : 2}>
+          {imagePanes.map((pane) => (
             <MediaPane key={pane.title} title={pane.title}>{pane.content}</MediaPane>
           ))}
         </Module01MediaGrid>
-      </Module01ActionSection>
-      <Module01ActionSection title={sectionTitle("视频与一键处理")}>
-        <>
-          <div className="control-row">
-            {onGenerateKeyframe ? (
-              <button className="tool-button primary" type="button" disabled={isGeneratingKeyframe} onClick={onGenerateKeyframe}>
-                <WandSparkles size={16} /> {isGeneratingKeyframe ? "生成中" : "生成跑步首帧"}
-              </button>
-            ) : null}
-            {onPrepareInput ? (
-              <button className="tool-button primary" type="button" disabled={isPreparingInput} onClick={onPrepareInput}>
-                <WandSparkles size={16} /> {isPreparingInput ? "准备中" : actionKind === "attack-1" ? "准备攻击起始帧" : "准备跳跃起始帧"}
-              </button>
-            ) : null}
-            {onGenerateMiddleFrame ? (
-              <button className="tool-button primary" type="button" disabled={isGeneratingMidframe} onClick={onGenerateMiddleFrame}>
-                <WandSparkles size={16} /> {isGeneratingMidframe ? "生成中" : "生成攻击中间帧"}
-              </button>
-            ) : null}
-            <button className="tool-button" type="button" disabled={isSubmittingVideo} onClick={onSubmitVideo}>
-              <Play size={16} /> {isSubmittingVideo ? "提交中" : "提交视频任务"}
+        <div className="control-row">
+          {onGenerateKeyframe ? (
+            <button className="tool-button primary" type="button" disabled={isGeneratingKeyframe} onClick={onGenerateKeyframe}>
+              <WandSparkles size={16} /> {isGeneratingKeyframe ? "生成中" : "生成跑步首帧"}
             </button>
-            <button className="tool-button primary" type="button" disabled={isProcessing} onClick={onProcess}>
-              <Scissors size={16} /> {isProcessing ? "处理中" : "一键处理"}
+          ) : null}
+          {onPrepareInput ? (
+            <button className="tool-button primary" type="button" disabled={isPreparingInput} onClick={onPrepareInput}>
+              <WandSparkles size={16} /> {isPreparingInput ? "准备中" : actionKind === "attack-1" ? "准备攻击起始帧" : "准备跳跃起始帧"}
             </button>
-            <button className="tool-button" type="button" onClick={onSaveConfig}>
-              <Save size={16} /> 保存视频配置
+          ) : null}
+          {onGenerateMiddleFrame ? (
+            <button className="tool-button primary" type="button" disabled={isGeneratingMidframe} onClick={onGenerateMiddleFrame}>
+              <WandSparkles size={16} /> {isGeneratingMidframe ? "生成中" : "生成攻击中间帧"}
             </button>
-          </div>
+          ) : null}
+        </div>
+        {actionKind === "run" ? (
+          <Module01AdvancedDetails title="跑步图片提示词">
+            <div className="form-grid">
+              <label className="field">
+                图像模型
+                <select aria-label="跑步首帧图像模型" value={imageModel} onChange={(event) => onChangeImageModel(event.target.value)}>
+                  {imageModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                图片尺寸
+                <select aria-label="跑步首帧图片尺寸" value={String(imageGenerationSize)} onChange={(event) => onChangeImageGenerationSize(Number(event.target.value))}>
+                  {imageGenerationSizeOptions.map((option) => (
+                    <option key={option.size} value={option.size}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              跑步首帧系统提示词
+              <textarea aria-label="跑步首帧系统提示词" value={systemPrompt} rows={7} onChange={(event) => onChangeSystemPrompt(event.target.value)} />
+            </label>
+            <label className="field">
+              跑步首帧自定义提示词
+              <textarea aria-label="跑步首帧自定义提示词" value={customPrompt} rows={4} onChange={(event) => onChangeCustomPrompt(event.target.value)} />
+            </label>
+            <label className="field">
+              跑步首帧最终提示词
+              <textarea aria-label="跑步首帧最终提示词" value={finalPrompt} rows={5} readOnly />
+            </label>
+          </Module01AdvancedDetails>
+        ) : null}
+        {onChangeStartScale ? (
           <div className="form-grid">
             <label className="field">
-              视频模型
-              <select aria-label={`${title}视频模型`} value={videoModel} onChange={(event) => onChangeVideoModel(event.target.value)}>
-                {videoModels.map((model) => (
-                  <option key={model.id} value={model.id}>{model.label}</option>
-                ))}
-              </select>
+              准备缩放比例
+              <input
+                aria-label={labelTitle("准备缩放比例")}
+                type="number"
+                min="0.45"
+                max="0.95"
+                step="0.01"
+                value={startScale ?? 0.75}
+                onChange={(event) => onChangeStartScale(normalizeAdvancedStartScale(Number(event.target.value), startScale ?? 0.75))}
+              />
             </label>
-            <label className="field">
-              视频时长
-              <select aria-label={`${title}视频时长`} value={String(videoDurationSeconds)} onChange={(event) => onChangeVideoDuration(Number(event.target.value))}>
-                {videoDurationOptions.map((duration) => (
-                  <option key={duration} value={duration}>{duration} 秒</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              视频分辨率
-              <select aria-label={`${title}视频分辨率`} value={videoResolution} onChange={(event) => onChangeVideoResolution(event.target.value)}>
-                {videoResolutionOptions.map((resolution) => (
-                  <option key={resolution} value={resolution}>{resolution}</option>
-                ))}
-              </select>
-            </label>
-            {onChangeStartScale ? (
-              <label className="field">
-                准备缩放比例
-                <input
-                  aria-label={labelTitle("准备缩放比例")}
-                  type="number"
-                  min="0.45"
-                  max="0.95"
-                  step="0.01"
-                  value={startScale ?? 0.75}
-                  onChange={(event) => onChangeStartScale(normalizeAdvancedStartScale(Number(event.target.value), startScale ?? 0.75))}
-                />
-              </label>
-            ) : null}
           </div>
-          {actionKind === "attack-1" && onChangeAttackMidframeCustomPrompt ? (
+        ) : null}
+        {actionKind === "attack-1" && onChangeAttackMidframeCustomPrompt ? (
+          <Module01AdvancedDetails title="攻击图片设置">
             <section className="prompt-section">
               <h3>攻击中间帧生成</h3>
               <div className="form-grid">
@@ -3483,21 +3458,58 @@ function AdvancedActionStage({
                 />
               </label>
             </section>
-          ) : null}
+          </Module01AdvancedDetails>
+        ) : null}
+      </Module01ActionSection>
+      <Module01ActionSection title={sectionTitle("视频与一键处理")}>
+        <Module01MediaGrid>
+          <MediaPane title={sectionTitle("视频预览")}>
+            <VideoPreview label={`${title}视频预览`} preview={outputPreview ?? null} emptyLabel={`等待${title}视频`} />
+          </MediaPane>
+          <MediaPane title={sectionTitle("处理预览")}>
+            {processedPreview}
+          </MediaPane>
+        </Module01MediaGrid>
+        <div className="control-row">
+          <button className="tool-button" type="button" disabled={isSubmittingVideo} onClick={onSubmitVideo}>
+            <Play size={16} /> {isSubmittingVideo ? "提交中" : "提交视频任务"}
+          </button>
+          <button className="tool-button primary" type="button" disabled={isProcessing} onClick={onProcess}>
+            <Scissors size={16} /> {isProcessing ? "处理中" : "一键处理"}
+          </button>
+          <button className="tool-button" type="button" onClick={onSaveConfig}>
+            <Save size={16} /> 保存视频配置
+          </button>
+        </div>
+        <div className="form-grid">
           <label className="field">
-            {primaryPromptPrefix}系统提示词
-            <textarea aria-label={`${primaryPromptPrefix}系统提示词`} value={systemPrompt} rows={7} onChange={(event) => onChangeSystemPrompt(event.target.value)} />
+            视频模型
+            <select aria-label={`${title}视频模型`} value={videoModel} onChange={(event) => onChangeVideoModel(event.target.value)}>
+              {videoModels.map((model) => (
+                <option key={model.id} value={model.id}>{model.label}</option>
+              ))}
+            </select>
           </label>
           <label className="field">
-            {primaryPromptPrefix}自定义提示词
-            <textarea aria-label={`${primaryPromptPrefix}自定义提示词`} value={customPrompt} rows={4} onChange={(event) => onChangeCustomPrompt(event.target.value)} />
+            视频时长
+            <select aria-label={`${title}视频时长`} value={String(videoDurationSeconds)} onChange={(event) => onChangeVideoDuration(Number(event.target.value))}>
+              {videoDurationOptions.map((duration) => (
+                <option key={duration} value={duration}>{duration} 秒</option>
+              ))}
+            </select>
           </label>
           <label className="field">
-            {primaryPromptPrefix}最终提示词
-            <textarea aria-label={`${primaryPromptPrefix}最终提示词`} value={finalPrompt} rows={5} readOnly />
+            视频分辨率
+            <select aria-label={`${title}视频分辨率`} value={videoResolution} onChange={(event) => onChangeVideoResolution(event.target.value)}>
+              {videoResolutionOptions.map((resolution) => (
+                <option key={resolution} value={resolution}>{resolution}</option>
+              ))}
+            </select>
           </label>
+        </div>
+        <Module01AdvancedDetails title={sectionTitle("视频提示词")}>
           {actionKind === "run" && onChangeRunVideoSystemPrompt && onChangeRunVideoCustomPrompt ? (
-            <section className="prompt-section">
+            <>
               <h3>跑步视频提示词</h3>
               <label className="field">
                 跑步视频系统提示词
@@ -3511,22 +3523,33 @@ function AdvancedActionStage({
                 跑步视频最终提示词
                 <textarea aria-label="跑步视频最终提示词" value={runFinalVideoPrompt ?? ""} rows={5} readOnly />
               </label>
-            </section>
-          ) : null}
+            </>
+          ) : (
+            <>
+              <label className="field">
+                视频系统提示词
+                <textarea aria-label="视频系统提示词" value={systemPrompt} rows={7} onChange={(event) => onChangeSystemPrompt(event.target.value)} />
+              </label>
+              <label className="field">
+                视频自定义提示词
+                <textarea aria-label="视频自定义提示词" value={customPrompt} rows={4} onChange={(event) => onChangeCustomPrompt(event.target.value)} />
+              </label>
+              <label className="field">
+                视频最终提示词
+                <textarea aria-label="视频最终提示词" value={finalPrompt} rows={5} readOnly />
+              </label>
+            </>
+          )}
           {statusDetails ? (
             <details className="status-details">
               <summary>视频状态详情</summary>
               <pre>{statusDetails}</pre>
             </details>
           ) : null}
-        </>
-      </Module01ActionSection>
-      <Module01ActionSection title={sectionTitle("结果")}>
-        {result ? (
-          <FourDirectionResultPanel result={result} frameIndex={0} isPlaying={false} />
-        ) : (
-          <EmptyPanel label={`等待${title}一键处理结果`} />
-        )}
+        </Module01AdvancedDetails>
+        <Module01AdvancedDetails title={sectionTitle("导出")}>
+          <FourDirectionResultPanel result={result ?? null} frameIndex={0} isPlaying={false} />
+        </Module01AdvancedDetails>
       </Module01ActionSection>
     </Module01PageStage>
   );

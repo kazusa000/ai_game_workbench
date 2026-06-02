@@ -55,6 +55,7 @@ import type {
   GodotExportResult,
   OneClickCharacterJob
 } from "../api/client";
+import { MODULE01_NAV_ITEMS, MODULE01_PAGE_LABELS, type Module01Page } from "./module01/module01Model";
 
 interface SpriteAnimatorProps {
   defaultKeys: SavedAnimationKeys;
@@ -89,10 +90,8 @@ interface AdvancedActionState {
   isProcessing: boolean;
 }
 
-type Module01Page = "reference-settings" | "base-template" | "direction-templates" | "walk-videos" | "advanced-run" | "advanced-attack-1" | "advanced-jump" | "one-click-character" | "character-preview" | "godot-export";
 type PreviewDirection = DirectionProcessingResult["key"];
 type CharacterPreviewBackgroundMode = "map-1" | "map-2" | "grid";
-type AdvancedActionPage = "advanced-run" | "advanced-attack-1" | "advanced-jump";
 
 interface CharacterPreviewSettings {
   idleFps: number;
@@ -320,19 +319,6 @@ const DEFAULT_VIDEO_MODEL = "bytedance/seedance-2.0";
 const FPS_MAX = 300;
 const GODOT_EXPORT_SIZE_OPTIONS = [256, 384, 512, 1024] as const;
 type GodotExportSize = (typeof GODOT_EXPORT_SIZE_OPTIONS)[number];
-
-const MODULE_PAGES: Record<Module01Page, string> = {
-  "reference-settings": "参考图设置",
-  "base-template": "角色基准模板生成",
-  "direction-templates": "步行四方向",
-  "walk-videos": "待机四方向",
-  "advanced-run": "跑步四方向",
-  "advanced-attack-1": "攻击四方向1",
-  "advanced-jump": "跳跃四方向",
-  "one-click-character": "一键生成角色",
-  "character-preview": "角色预览",
-  "godot-export": "导出"
-};
 
 const PREVIEW_DIRECTION_ORDER = ["down", "up", "left", "right"] as const satisfies readonly PreviewDirection[];
 const PREVIEW_DIRECTION_LABELS: Record<PreviewDirection, string> = {
@@ -1917,14 +1903,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           <ArrowLeft size={18} />
         </button>
         <div className="nav-brand">模块 01</div>
-        <div className="nav-group-title">设置</div>
-        <button
-          className={["nav-item", activePage === "reference-settings" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("reference-settings")}
-        >
-          <Settings size={18} /> 参考图设置
-        </button>
         <section className="character-panel" aria-label="角色文件夹">
           <div className="nav-group-title">角色</div>
           <label className="field compact-field">
@@ -1982,77 +1960,36 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           </button>
           <span className="character-status">{characterStatus}</span>
         </section>
-        <button
-          className={["nav-item", activePage === "base-template" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("base-template")}
-        >
-          <WandSparkles size={18} /> 角色基准模板生成
-        </button>
-        <div className="nav-group-title">基础角色生成</div>
-        <button
-          className={["nav-item", "nav-sub-item", activePage === "direction-templates" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("direction-templates")}
-        >
-          步行四方向
-        </button>
-        <button
-          className={["nav-item", "nav-sub-item", activePage === "walk-videos" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("walk-videos")}
-        >
-          待机四方向
-        </button>
-        <div className="nav-group-title">进阶角色生成</div>
-        <button
-          className={["nav-item", "nav-sub-item", activePage === "advanced-run" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("advanced-run")}
-        >
-          跑步四方向
-        </button>
-        <button
-          className={["nav-item", "nav-sub-item", activePage === "advanced-attack-1" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("advanced-attack-1")}
-        >
-          攻击四方向1
-        </button>
-        <button
-          className={["nav-item", "nav-sub-item", activePage === "advanced-jump" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("advanced-jump")}
-        >
-          跳跃四方向
-        </button>
-        <button
-          className={["nav-item", activePage === "one-click-character" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("one-click-character")}
-        >
-          <WandSparkles size={18} /> 一键生成角色
-        </button>
-        <button
-          className={["nav-item", activePage === "character-preview" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("character-preview")}
-        >
-          <Gamepad2 size={18} /> 角色预览
-        </button>
-        <button
-          className={["nav-item", activePage === "godot-export" ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-          type="button"
-          onClick={() => setActivePage("godot-export")}
-        >
-          <Download size={18} /> 导出
-        </button>
+        <div className="nav-group-title">流程</div>
+        {MODULE01_NAV_ITEMS.slice(0, 9).map((item) => (
+          <button
+            key={item.id}
+            className={["nav-item", activePage === item.id ? "nav-item-active" : ""].filter(Boolean).join(" ")}
+            type="button"
+            onClick={() => setActivePage(item.id)}
+          >
+            <Module01NavIcon page={item.id} />
+            {item.label}
+          </button>
+        ))}
+        <div className="nav-group-title">配置</div>
+        {MODULE01_NAV_ITEMS.slice(9).map((item) => (
+          <button
+            key={item.id}
+            className={["nav-item", activePage === item.id ? "nav-item-active" : ""].filter(Boolean).join(" ")}
+            type="button"
+            onClick={() => setActivePage(item.id)}
+          >
+            <Module01NavIcon page={item.id} />
+            {item.label}
+          </button>
+        ))}
       </aside>
 
       <section className="main-stage">
         <header className="tool-header">
           <div>
-            <p className="eyebrow">模块 01 / {MODULE_PAGES[activePage]}</p>
+            <p className="eyebrow">模块 01 / {MODULE01_PAGE_LABELS[activePage]}</p>
             <h1>高清2D角色制作</h1>
           </div>
           <div className="toolbar">
@@ -2068,9 +2005,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         </header>
 
         <div className="workflow-stack">
-          {activePage === "reference-settings" ? (
+          {activePage === "module-settings" ? (
             <WorkflowStage
-              title="参考图设置"
+              title="模块设置"
               status={referenceSettingsStatus}
               mediaPanes={[
                 {
@@ -2232,7 +2169,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
 
           {activePage === "base-template" ? (
           <WorkflowStage
-            title="角色基准模板生成"
+              title="基准模板"
             status={firstFrameStatus}
             mediaPanes={[
               {
@@ -2356,7 +2293,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           />
           ) : null}
 
-          {activePage === "direction-templates" ? (
+          {activePage === "walk" ? (
           <WorkflowStage
             title="步行四方向"
             status={`${directionTemplateStatus} / ${videoStatus} / ${frameStatus}`}
@@ -2581,7 +2518,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           />
           ) : null}
 
-          {activePage === "walk-videos" ? (
+          {activePage === "idle" ? (
           <WorkflowStage
             title="待机四方向"
             status={`${directionTemplateStatus} / ${frameStatus}`}
@@ -2687,7 +2624,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           />
           ) : null}
 
-          {activePage === "advanced-run" ? (
+          {activePage === "run" ? (
             <AdvancedActionStage
               actionKind="run"
               title="跑步四方向"
@@ -2733,7 +2670,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             />
           ) : null}
 
-          {activePage === "advanced-attack-1" ? (
+          {activePage === "attack-1" ? (
             <AdvancedActionStage
               actionKind="attack-1"
               title="攻击四方向1"
@@ -2780,7 +2717,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             />
           ) : null}
 
-          {activePage === "advanced-jump" ? (
+          {activePage === "jump" ? (
             <AdvancedActionStage
               actionKind="jump"
               title="跳跃四方向"
@@ -2849,6 +2786,22 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       </section>
     </main>
   );
+}
+
+function Module01NavIcon({ page }: { page: Module01Page }) {
+  if (page === "one-click-character") {
+    return <WandSparkles size={18} />;
+  }
+  if (page === "character-preview") {
+    return <Gamepad2 size={18} />;
+  }
+  if (page === "godot-export") {
+    return <Download size={18} />;
+  }
+  if (page === "module-settings") {
+    return <Settings size={18} />;
+  }
+  return null;
 }
 
 function GodotExportStage({

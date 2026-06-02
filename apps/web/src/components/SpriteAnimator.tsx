@@ -55,6 +55,13 @@ import type {
   GodotExportResult,
   OneClickCharacterJob
 } from "../api/client";
+import {
+  Module01ActionSection,
+  Module01AdvancedDetails,
+  Module01MediaGrid,
+  Module01PageStage,
+  type Module01StatusItem
+} from "./module01/Module01Stage";
 import { MODULE01_NAV_ITEMS, MODULE01_PAGE_LABELS, type Module01Page } from "./module01/module01Model";
 
 interface SpriteAnimatorProps {
@@ -2294,25 +2301,24 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           ) : null}
 
           {activePage === "walk" ? (
-          <WorkflowStage
-            title="步行四方向"
-            status={`${directionTemplateStatus} / ${videoStatus} / ${frameStatus}`}
-            mediaPanes={[
-              {
-                title: "角色基准模板",
-                content: <ImagePreview alt="角色基准模板预览" preview={effectiveDirectionBaseTemplatePreview} emptyLabel="等待基准模板" />
-              },
-              {
-                title: "步行 2x2 输出",
-                content: <ImagePreview alt="步行 2x2 输出预览" preview={walkDirectionOutputPreview ?? videoInputPreview} emptyLabel="先生成或上传步行 2x2" />
-              },
-              {
-                title: "步行视频预览",
-                content: <VideoPreview label="帧处理视频输入预览" preview={frameVideoInputPreview ?? videoOutputPreview} emptyLabel="等待视频结果" />
-              }
-            ]}
-            controls={(
-              <>
+            <Module01PageStage
+              title="步行"
+              status={`${directionTemplateStatus} / ${videoStatus} / ${frameStatus}`}
+              statusItems={[
+                { label: "基准模板", value: effectiveDirectionBaseTemplatePreview ? "已准备" : "缺少", state: effectiveDirectionBaseTemplatePreview ? "ready" : "missing" },
+                { label: "步行图片", value: walkDirectionOutputPreview || videoInputPreview ? "已准备" : "缺少", state: walkDirectionOutputPreview || videoInputPreview ? "ready" : "missing" },
+                { label: "步行结果", value: fourDirectionResult?.directions.length ? "已处理" : "未处理", state: fourDirectionResult?.directions.length ? "done" : "missing" }
+              ]}
+            >
+              <Module01ActionSection title="步行图片">
+                <Module01MediaGrid>
+                  <MediaPane title="角色基准模板">
+                    <ImagePreview alt="角色基准模板预览" preview={effectiveDirectionBaseTemplatePreview} emptyLabel="等待基准模板" />
+                  </MediaPane>
+                  <MediaPane title="步行 2x2 输出">
+                    <ImagePreview alt="步行 2x2 输出预览" preview={walkDirectionOutputPreview ?? videoInputPreview} emptyLabel="先生成或上传步行 2x2" />
+                  </MediaPane>
+                </Module01MediaGrid>
                 <div className="control-row">
                   <label className="file-picker">
                     <Upload size={16} /> 上传角色基准模板
@@ -2335,7 +2341,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     disabled={processingDirectionTemplate !== null}
                     onClick={() => void handleGenerateDirectionTemplate("walk")}
                   >
-                    <WandSparkles size={16} /> {processingDirectionTemplate === "walk" ? "生成中" : "生成步行四方向图"}
+                    <WandSparkles size={16} /> {processingDirectionTemplate === "walk" ? "生成中" : "生成步行 2x2"}
                   </button>
                   <label className="file-picker">
                     <Upload size={16} /> 上传四方向步行图
@@ -2352,6 +2358,62 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                       }}
                     />
                   </label>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    四方向图像模型
+                    <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
+                      {imageModels.map((model) => (
+                        <option key={model.id} value={model.id}>{model.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    四方向图片生成尺寸
+                    <select aria-label="四方向图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
+                      {directionImageGenerationSizeOptions.map((option) => (
+                        <option key={option.size} value={option.size}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    抠图背景
+                    <input type="color" value={keyColor} onChange={(event) => setKeyColor(event.target.value)} />
+                  </label>
+                </div>
+                <Module01AdvancedDetails title="步行图片提示词">
+                  <section className="prompt-section">
+                    <h3>步行图片提示词</h3>
+                    <div className="prompt-grid">
+                      <label className="field">
+                        步行系统提示词
+                        <textarea aria-label="步行系统提示词" value={directionWalkSystemPrompt} rows={7} onChange={(event) => setDirectionWalkSystemPrompt(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        步行自定义提示词
+                        <textarea aria-label="步行自定义提示词" placeholder="填写步行幅度、性格、节奏等要求" value={directionWalkCustomPrompt} rows={7} onChange={(event) => setDirectionWalkCustomPrompt(event.target.value)} />
+                      </label>
+                    </div>
+                    <label className="field prompt-final">
+                      步行最终提示词
+                      <textarea aria-label="步行最终提示词" value={finalDirectionWalkPrompt} rows={5} readOnly />
+                    </label>
+                  </section>
+                  <button className="tool-button" type="button" onClick={handleSaveDirectionTemplateDraft}>
+                    <Save size={16} /> 保存步行配置
+                  </button>
+                </Module01AdvancedDetails>
+              </Module01ActionSection>
+              <Module01ActionSection title="步行视频与一键处理">
+                <Module01MediaGrid>
+                  <MediaPane title="步行视频预览">
+                    <VideoPreview label="帧处理视频输入预览" preview={frameVideoInputPreview ?? videoOutputPreview} emptyLabel="等待视频结果" />
+                  </MediaPane>
+                  <MediaPane title="处理状态">
+                    <EmptyMedia label={fourDirectionResult?.directions.length ? "步行已处理" : "等待一键处理"} />
+                  </MediaPane>
+                </Module01MediaGrid>
+                <div className="control-row">
                   <button
                     className="tool-button"
                     type="button"
@@ -2381,7 +2443,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     disabled={isProcessingFrames}
                     onClick={() => void handleProcessFourDirection()}
                   >
-                    <Scissors size={16} /> {isProcessingFrames ? "处理中" : "一键处理步行循环"}
+                    <Scissors size={16} /> {isProcessingFrames ? "处理中" : "一键处理"}
                   </button>
                   <button
                     className="tool-button"
@@ -2393,22 +2455,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   </button>
                 </div>
                 <div className="form-grid">
-                  <label className="field">
-                    四方向图像模型
-                    <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
-                      {imageModels.map((model) => (
-                        <option key={model.id} value={model.id}>{model.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    四方向图片生成尺寸
-                    <select aria-label="四方向图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
-                      {directionImageGenerationSizeOptions.map((option) => (
-                        <option key={option.size} value={option.size}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
                   <label className="field">
                     视频模型
                     <select aria-label="视频模型" value={videoModel} onChange={(event) => handleChangeVideoModel(event.target.value)}>
@@ -2433,89 +2479,64 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                       ))}
                     </select>
                   </label>
-                  <label className="field">
-                    抽帧数量
-                    <input aria-label="抽帧数量" type="number" min={1} max={120} value={frameCount} onChange={(event) => setFrameCount(clamp(Number(event.target.value), 1, 120))} />
-                  </label>
-                  <label className="field">
-                    预览 FPS
-                    <input aria-label="预览 FPS" type="number" min={1} max={FPS_MAX} value={fps} onChange={(event) => setFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
-                  </label>
-                  <label className="field">
-                    抠图背景
-                    <input type="color" value={keyColor} onChange={(event) => setKeyColor(event.target.value)} />
-                  </label>
-                  <label className="field">
-                    抠图容差
-                    <input aria-label="抠图容差" type="number" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(clamp(Number(event.target.value), 0, 255))} />
-                  </label>
-                  <label className="field">
-                    最小循环帧数
-                    <input aria-label="最小循环帧数" type="number" min={2} max={120} value={minLoopFrames} onChange={(event) => setMinLoopFrames(clamp(Number(event.target.value), 2, 120))} />
-                  </label>
-                  <label className="field">
-                    最大循环帧数
-                    <input aria-label="最大循环帧数" type="number" min={2} max={120} value={maxLoopFrames} onChange={(event) => setMaxLoopFrames(clamp(Number(event.target.value), 2, 120))} />
-                  </label>
-                  <label className="field">
-                    导出单帧尺寸
-                    <input aria-label="导出单帧尺寸" type="number" min={64} max={1024} value={exportFrameSize} onChange={(event) => setExportFrameSize(clamp(Number(event.target.value), 64, 1024))} />
-                  </label>
                 </div>
-                {videoStatusDetails ? (
-                  <details className="status-details">
-                    <summary>视频状态详情</summary>
-                    <pre>{videoStatusDetails}</pre>
-                  </details>
-                ) : null}
-              </>
-            )}
-            footer={(
-              <div className="prompt-panel direction-prompt-panel">
-                <section className="prompt-section">
-                  <h3>步行四方向提示词</h3>
-                  <div className="prompt-grid">
+                <Module01AdvancedDetails title="处理参数与视频提示词">
+                  <div className="form-grid">
                     <label className="field">
-                      步行系统提示词
-                      <textarea aria-label="步行系统提示词" value={directionWalkSystemPrompt} rows={7} onChange={(event) => setDirectionWalkSystemPrompt(event.target.value)} />
+                      抽帧数量
+                      <input aria-label="抽帧数量" type="number" min={1} max={120} value={frameCount} onChange={(event) => setFrameCount(clamp(Number(event.target.value), 1, 120))} />
                     </label>
                     <label className="field">
-                      步行自定义提示词
-                      <textarea aria-label="步行自定义提示词" placeholder="填写步行幅度、性格、节奏等要求" value={directionWalkCustomPrompt} rows={7} onChange={(event) => setDirectionWalkCustomPrompt(event.target.value)} />
+                      预览 FPS
+                      <input aria-label="预览 FPS" type="number" min={1} max={FPS_MAX} value={fps} onChange={(event) => setFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
+                    </label>
+                    <label className="field">
+                      抠图容差
+                      <input aria-label="抠图容差" type="number" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(clamp(Number(event.target.value), 0, 255))} />
+                    </label>
+                    <label className="field">
+                      最小循环帧数
+                      <input aria-label="最小循环帧数" type="number" min={2} max={120} value={minLoopFrames} onChange={(event) => setMinLoopFrames(clamp(Number(event.target.value), 2, 120))} />
+                    </label>
+                    <label className="field">
+                      最大循环帧数
+                      <input aria-label="最大循环帧数" type="number" min={2} max={120} value={maxLoopFrames} onChange={(event) => setMaxLoopFrames(clamp(Number(event.target.value), 2, 120))} />
+                    </label>
+                    <label className="field">
+                      导出单帧尺寸
+                      <input aria-label="导出单帧尺寸" type="number" min={64} max={1024} value={exportFrameSize} onChange={(event) => setExportFrameSize(clamp(Number(event.target.value), 64, 1024))} />
                     </label>
                   </div>
-                  <label className="field prompt-final">
-                    步行最终提示词
-                    <textarea aria-label="步行最终提示词" value={finalDirectionWalkPrompt} rows={5} readOnly />
-                  </label>
-                </section>
-                <section className="prompt-section">
-                  <h3>步行视频提示词</h3>
-                  <label className="field">
-                    视频系统提示词
-                    <textarea aria-label="视频系统提示词" value={videoSystemPrompt} rows={7} onChange={(event) => setVideoSystemPrompt(event.target.value)} />
-                  </label>
-                  <label className="field">
-                    视频自定义提示词
-                    <textarea aria-label="视频自定义提示词" value={videoCustomPrompt} rows={4} onChange={(event) => setVideoCustomPrompt(event.target.value)} />
-                  </label>
-                  <label className="field prompt-final">
-                    最终视频提示词
-                    <textarea aria-label="最终视频提示词" value={finalVideoPrompt} rows={5} readOnly />
-                  </label>
-                </section>
-                <div className="control-row">
-                  <button className="tool-button" type="button" onClick={handleSaveDirectionTemplateDraft}>
-                    <Save size={16} /> 保存步行四方向配置
-                  </button>
+                  <section className="prompt-section">
+                    <h3>步行视频提示词</h3>
+                    <label className="field">
+                      视频系统提示词
+                      <textarea aria-label="视频系统提示词" value={videoSystemPrompt} rows={7} onChange={(event) => setVideoSystemPrompt(event.target.value)} />
+                    </label>
+                    <label className="field">
+                      视频自定义提示词
+                      <textarea aria-label="视频自定义提示词" value={videoCustomPrompt} rows={4} onChange={(event) => setVideoCustomPrompt(event.target.value)} />
+                    </label>
+                    <label className="field prompt-final">
+                      最终视频提示词
+                      <textarea aria-label="最终视频提示词" value={finalVideoPrompt} rows={5} readOnly />
+                    </label>
+                  </section>
+                  {videoStatusDetails ? (
+                    <details className="status-details">
+                      <summary>视频状态详情</summary>
+                      <pre>{videoStatusDetails}</pre>
+                    </details>
+                  ) : null}
                   <button className="tool-button" type="button" onClick={handleSaveVideoDraft}>
                     <Save size={16} /> 保存视频配置
                   </button>
-                </div>
+                </Module01AdvancedDetails>
+              </Module01ActionSection>
+              <Module01ActionSection title="步行结果">
                 <FourDirectionResultPanel result={fourDirectionResult} frameIndex={activeFrameIndex} isPlaying={isPlayingFrames} />
-              </div>
-            )}
-          />
+              </Module01ActionSection>
+            </Module01PageStage>
           ) : null}
 
           {activePage === "idle" ? (
@@ -2627,7 +2648,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           {activePage === "run" ? (
             <AdvancedActionStage
               actionKind="run"
-              title="跑步四方向"
+              title="跑步"
               status={advancedActions.run.status}
               baseInputPreview={walkDirectionOutputPreview}
               keyframePreview={advancedActions.run.keyframePreview}
@@ -2673,7 +2694,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           {activePage === "attack-1" ? (
             <AdvancedActionStage
               actionKind="attack-1"
-              title="攻击四方向1"
+              title="攻击 1"
               status={advancedActions["attack-1"].status}
               baseInputPreview={idleDirectionOutputPreview}
               inputPreview={advancedActions["attack-1"].inputPreview}
@@ -2720,7 +2741,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           {activePage === "jump" ? (
             <AdvancedActionStage
               actionKind="jump"
-              title="跳跃四方向"
+              title="跳跃"
               status={advancedActions.jump.status}
               baseInputPreview={idleDirectionOutputPreview}
               inputPreview={advancedActions.jump.inputPreview}
@@ -3048,13 +3069,26 @@ function AdvancedActionStage({
       ];
 
   const primaryPromptPrefix = actionKind === "run" ? "跑步首帧" : "视频";
+  const sectionTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
 
   return (
-    <WorkflowStage
+    <Module01PageStage
       title={title}
       status={status}
-      mediaPanes={mediaPanes}
-      controls={(
+      statusItems={[
+        { label: "输入", value: baseInputPreview || inputPreview ? "已准备" : "缺少", state: baseInputPreview || inputPreview ? "ready" : "missing" },
+        { label: "视频", value: outputPreview ? "已生成" : "未生成", state: outputPreview ? "done" : "missing" },
+        { label: "结果", value: result?.directions.length ? "已处理" : "未处理", state: result?.directions.length ? "done" : "missing" }
+      ]}
+    >
+      <Module01ActionSection title={sectionTitle("图片")}>
+        <Module01MediaGrid columns={mediaPanes.length >= 3 ? 3 : 2}>
+          {mediaPanes.map((pane) => (
+            <MediaPane key={pane.title} title={pane.title}>{pane.content}</MediaPane>
+          ))}
+        </Module01MediaGrid>
+      </Module01ActionSection>
+      <Module01ActionSection title={sectionTitle("视频与一键处理")}>
         <>
           <div className="control-row">
             {onGenerateKeyframe ? (
@@ -3183,9 +3217,6 @@ function AdvancedActionStage({
               </label>
             </section>
           ) : null}
-          {result ? (
-            <FourDirectionResultPanel result={result} frameIndex={0} isPlaying={false} />
-          ) : null}
           {statusDetails ? (
             <details className="status-details">
               <summary>视频状态详情</summary>
@@ -3193,8 +3224,15 @@ function AdvancedActionStage({
             </details>
           ) : null}
         </>
-      )}
-    />
+      </Module01ActionSection>
+      <Module01ActionSection title={sectionTitle("结果")}>
+        {result ? (
+          <FourDirectionResultPanel result={result} frameIndex={0} isPlaying={false} />
+        ) : (
+          <EmptyPanel label={`等待${title}一键处理结果`} />
+        )}
+      </Module01ActionSection>
+    </Module01PageStage>
   );
 }
 

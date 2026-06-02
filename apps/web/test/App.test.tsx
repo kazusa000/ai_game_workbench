@@ -832,6 +832,34 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /保存基准模板配置/i })).toBeInTheDocument();
   });
 
+  it("uses aligned section labels for action pages", () => {
+    openSpriteAnimator();
+
+    fireEvent.click(screen.getByRole("button", { name: "步行" }));
+    expect(screen.getByRole("heading", { name: "步行" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "步行图片" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "步行视频与一键处理" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "步行结果" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "跑步" }));
+    expect(screen.getByRole("heading", { name: "跑步" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跑步图片" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跑步视频与一键处理" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跑步结果" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "攻击 1" }));
+    expect(screen.getByRole("heading", { name: "攻击 1" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "攻击 1 图片" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "攻击 1 视频与一键处理" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "攻击 1 结果" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "跳跃" }));
+    expect(screen.getByRole("heading", { name: "跳跃" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跳跃图片" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跳跃视频与一键处理" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "跳跃结果" })).toBeInTheDocument();
+  });
+
   it("shows the one-click character page with locked required actions and a progress bar", () => {
     openSpriteAnimator();
 

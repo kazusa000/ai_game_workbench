@@ -11,7 +11,7 @@ coverage/
 .env.*
 !.env.example
 
-storage/
+/storage/
 Export/
 apps/server/output/
 tmp/

@@ -361,9 +361,9 @@ const DEFAULT_CHARACTER_PREVIEW_SETTINGS = {
 
 const REFERENCE_IMAGE_LABELS: Record<Module01ReferenceImageKind, string> = {
   style: "赛璐璐画风参考图",
-  walk: "四方向步行参考图",
-  idle: "四方向待机参考图",
-  run: "四方向跑步参考图"
+  walk: "步行参考图",
+  idle: "待机参考图",
+  run: "跑步参考图"
 };
 
 export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
@@ -438,9 +438,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const [frames, setFrames] = useState<FramePreview[]>([]);
   const [fourDirectionResult, setFourDirectionResult] = useState<ProcessFourDirectionResult | null>(null);
   const [advancedActions, setAdvancedActions] = useState<Record<AdvancedActionKind, AdvancedActionState>>(() => ({
-    run: buildInitialAdvancedActionState("等待步行四方向图，可先生成跑步首帧。"),
-    "attack-1": buildInitialAdvancedActionState("等待待机四方向处理结果，可准备攻击起始帧。"),
-    jump: buildInitialAdvancedActionState("等待待机四方向处理结果，可准备跳跃起始帧。")
+    run: buildInitialAdvancedActionState("等待步行图片，可先生成跑步首帧。"),
+    "attack-1": buildInitialAdvancedActionState("等待待机处理结果，可准备攻击起始帧。"),
+    jump: buildInitialAdvancedActionState("等待待机处理结果，可准备跳跃起始帧。")
   }));
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
   const [characters, setCharacters] = useState<CharacterFolder[]>([]);
@@ -460,7 +460,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const [firstFrameStatus, setFirstFrameStatus] = useState("等待角色参考图或直接生成基准模板。");
   const [referenceSettingsStatus, setReferenceSettingsStatus] = useState("上传参考图后会全局覆盖，并影响所有角色后续生成。");
   const [directionTemplateStatus, setDirectionTemplateStatus] = useState("等待角色基准模板。先生成步行 2x2，再基于步行图生成待机 2x2。");
-  const [videoStatus, setVideoStatus] = useState("等待四方向步行图，或直接上传 2x2 四方向步行图。");
+  const [videoStatus, setVideoStatus] = useState("等待步行图片，或直接上传 2x2 步行图。");
   const [videoStatusDetails, setVideoStatusDetails] = useState("");
   const [frameStatus, setFrameStatus] = useState("等待视频下载完成。");
   const [godotExportSize, setGodotExportSize] = useState<GodotExportSize>(512);
@@ -768,9 +768,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     setFrames([]);
     setFourDirectionResult(null);
     setAdvancedActions({
-      run: buildInitialAdvancedActionState("等待步行四方向图，可先生成跑步首帧。"),
-      "attack-1": buildInitialAdvancedActionState("等待待机四方向处理结果，可准备攻击起始帧。"),
-      jump: buildInitialAdvancedActionState("等待待机四方向处理结果，可准备跳跃起始帧。")
+      run: buildInitialAdvancedActionState("等待步行图片，可先生成跑步首帧。"),
+      "attack-1": buildInitialAdvancedActionState("等待待机处理结果，可准备攻击起始帧。"),
+      jump: buildInitialAdvancedActionState("等待待机处理结果，可准备跳跃起始帧。")
     });
     setGodotExportResult(null);
     setGodotExportStatus("选择导出尺寸后生成 Godot 导出包。");
@@ -809,15 +809,15 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       setFrames([]);
       setFourDirectionResult(assets.baseCharacter.loopExport ? normalizeFourDirectionResult(assets.baseCharacter.loopExport) : null);
       setAdvancedActions({
-        run: advancedAssetToState(assets.advancedCharacter?.run, "等待步行四方向图，可先生成跑步首帧。"),
-        "attack-1": advancedAssetToState(assets.advancedCharacter?.attack1, "等待待机四方向处理结果，可准备攻击起始帧。"),
-        jump: advancedAssetToState(assets.advancedCharacter?.jump, "等待待机四方向处理结果，可准备跳跃起始帧。")
+        run: advancedAssetToState(assets.advancedCharacter?.run, "等待步行图片，可先生成跑步首帧。"),
+        "attack-1": advancedAssetToState(assets.advancedCharacter?.attack1, "等待待机处理结果，可准备攻击起始帧。"),
+        jump: advancedAssetToState(assets.advancedCharacter?.jump, "等待待机处理结果，可准备跳跃起始帧。")
       });
       setActiveFrameIndex(0);
       setIsPlayingFrames(false);
       setFirstFrameStatus(baseTemplateOutput || characterReference ? "已自动载入该角色已有参考图和基准模板。" : "等待角色参考图或直接生成基准模板。");
-      setDirectionTemplateStatus(directionBaseTemplate || idleDirection || walkDirection ? "已自动载入该角色已有四方向模板文件。" : "等待角色基准模板。先生成步行 2x2，再基于步行图生成待机 2x2。");
-      setVideoStatus(walkVideoSource ? "已自动载入该角色已有步行视频。" : walkVideoInput || walkDirection ? "已自动载入该角色已有四方向步行图，可以提交视频任务。" : "等待四方向步行图，或直接上传 2x2 四方向步行图。");
+      setDirectionTemplateStatus(directionBaseTemplate || idleDirection || walkDirection ? "已自动载入该角色已有模板文件。" : "等待角色基准模板。先生成步行 2x2，再基于步行图生成待机 2x2。");
+      setVideoStatus(walkVideoSource ? "已自动载入该角色已有步行视频。" : walkVideoInput || walkDirection ? "已自动载入该角色已有步行图片，可以提交视频任务。" : "等待步行图片，或直接上传 2x2 步行图。");
       setFrameStatus(assets.baseCharacter.loopExport ? "已自动载入该角色已有循环导出结果。" : walkVideoSource ? "已自动载入该角色已有视频，可以处理帧。" : "等待视频下载完成。");
     } catch (error: unknown) {
       clearLoadedCharacterAssets();
@@ -866,16 +866,16 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     setFrames([]);
     setFourDirectionResult(null);
     setAdvancedActions({
-      run: buildInitialAdvancedActionState("等待步行四方向图，可先生成跑步首帧。"),
-      "attack-1": buildInitialAdvancedActionState("等待待机四方向处理结果，可准备攻击起始帧。"),
-      jump: buildInitialAdvancedActionState("等待待机四方向处理结果，可准备跳跃起始帧。")
+      run: buildInitialAdvancedActionState("等待步行图片，可先生成跑步首帧。"),
+      "attack-1": buildInitialAdvancedActionState("等待待机处理结果，可准备攻击起始帧。"),
+      jump: buildInitialAdvancedActionState("等待待机处理结果，可准备跳跃起始帧。")
     });
     setGodotExportResult(null);
     setActiveFrameIndex(0);
     setIsPlayingFrames(false);
     setFirstFrameStatus(characterId ? "等待角色参考图或直接生成基准模板。" : "请先创建或选择角色文件夹。");
     setDirectionTemplateStatus(characterId ? "等待角色基准模板。先生成步行 2x2，再基于步行图生成待机 2x2。" : "请先创建或选择角色文件夹。");
-    setVideoStatus(characterId ? "等待四方向步行图，或直接上传 2x2 四方向步行图。" : "请先创建或选择角色文件夹。");
+    setVideoStatus(characterId ? "等待步行图片，或直接上传 2x2 步行图。" : "请先创建或选择角色文件夹。");
     setFrameStatus(characterId ? "等待视频下载完成。" : "请先创建或选择角色文件夹。");
     setGodotExportStatus(characterId ? "选择导出尺寸后生成 Godot 导出包。" : "请先创建或选择角色文件夹。");
   };
@@ -1100,7 +1100,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       name: file.name,
       url: previewUrl
     });
-    setVideoStatus(`已载入四方向步行图：${file.name}，正在保存资源。`);
+    setVideoStatus(`已载入步行图片：${file.name}，正在保存资源。`);
     void uploadFirstFrameAsset(file, {
       publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
       characterId,
@@ -1122,10 +1122,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           name: asset.fileName,
           publicUrl: asset.publicUrl
         } : current);
-        setVideoStatus(`四方向步行图已保存：${asset.fileName}，可以提交视频任务。`);
+        setVideoStatus(`步行图片已保存：${asset.fileName}，可以提交视频任务。`);
       })
       .catch((error: unknown) => {
-        setVideoStatus(`四方向步行图保存失败：${getErrorMessage(error)}`);
+        setVideoStatus(`步行图片保存失败：${getErrorMessage(error)}`);
       });
   };
 
@@ -1168,8 +1168,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       setFirstFrameStatus("角色基准模板生成完成，已进入基础角色生成数据流。");
       setDirectionBaseTemplateFile(null);
       setDirectionBaseTemplatePreview(null);
-      setDirectionTemplateStatus("角色基准模板已就绪，请先生成步行四方向图，再基于步行图生成待机四方向图。");
-      setVideoStatus("角色基准模板已就绪，请先生成步行四方向图，或在视频页直接上传 2x2 四方向步行图。");
+      setDirectionTemplateStatus("角色基准模板已就绪，请先生成步行 2x2，再基于步行图生成待机 2x2。");
+      setVideoStatus("角色基准模板已就绪，请先生成步行 2x2，或在步行页直接上传 2x2 步行图。");
     } catch (error: unknown) {
       setFirstFrameStatus(`基准模板生成失败：${getErrorMessage(error)}`);
     } finally {
@@ -1186,7 +1186,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     const outputLabel = templateKind === "idle" ? "待机" : "步行";
     assetHydrationVersionRef.current += 1;
     setProcessingDirectionTemplate(templateKind);
-    setDirectionTemplateStatus(`正在生成${outputLabel}四方向图...`);
+    setDirectionTemplateStatus(`正在生成${outputLabel} 2x2...`);
     try {
       const characterTemplateImageDataUrl = await resolveDirectionTemplateSourceDataUrl(templateKind);
       const response = await createDirectionTemplateGeneration({
@@ -1203,7 +1203,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       const imageUrl = extractImageUrl(response);
       const publicUrl = extractPublicUrl(response) ?? imageUrl;
       if (!imageUrl) {
-        throw new Error(`${outputLabel}四方向图生成没有返回图片。`);
+        throw new Error(`${outputLabel} 2x2 生成没有返回图片。`);
       }
       const preview = {
         name: extractFileName(response) ?? `${templateKind}-4dir.png`,
@@ -1216,11 +1216,11 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         setWalkDirectionOutputPreview(preview);
         setIdleDirectionOutputPreview(null);
         setVideoInputPreview(preview);
-        setVideoStatus("步行四方向图已就绪，可以提交步行视频任务。");
+        setVideoStatus("步行图片已就绪，可以提交步行视频任务。");
       }
-      setDirectionTemplateStatus(`${outputLabel}四方向图生成完成。`);
+      setDirectionTemplateStatus(`${outputLabel} 2x2 生成完成。`);
     } catch (error: unknown) {
-      setDirectionTemplateStatus(`${outputLabel}四方向图生成失败：${getErrorMessage(error)}`);
+      setDirectionTemplateStatus(`${outputLabel} 2x2 生成失败：${getErrorMessage(error)}`);
     } finally {
       setProcessingDirectionTemplate(null);
     }
@@ -1241,7 +1241,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       return resolveDirectionBaseTemplateDataUrl();
     }
     if (!walkDirectionOutputPreview) {
-      throw new Error("请先生成步行四方向图，再基于步行图生成待机四方向图。");
+      throw new Error("请先生成步行 2x2，再基于步行图生成待机 2x2。");
     }
     return readImageUrlAsDataUrl(walkDirectionOutputPreview.url);
   };
@@ -1253,11 +1253,11 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
     const firstFrameUrl = videoInputPreview?.publicUrl ?? videoInputPreview?.url ?? "";
     if (!firstFrameUrl) {
-      setVideoStatus("请先生成步行四方向图，或直接上传 2x2 四方向步行图。");
+      setVideoStatus("请先生成步行 2x2，或直接上传 2x2 步行图。");
       return;
     }
     if (!isPublicHttpsUrl(firstFrameUrl)) {
-      setVideoStatus("视频模型需要公网 HTTPS 四方向步行图 URL。请重新生成步行四方向图或重新上传。");
+      setVideoStatus("视频模型需要公网 HTTPS 步行图片 URL。请重新生成步行图片或重新上传。");
       return;
     }
     setIsSubmittingVideo(true);
@@ -1323,11 +1323,11 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       return;
     }
     if (!videoJobId || !frameVideoInputPreview) {
-      setFrameStatus("请先完成步行四方向视频，或上传步行视频。");
+      setFrameStatus("请先完成步行视频，或上传步行视频。");
       return;
     }
     setIsProcessingFrames(true);
-    setFrameStatus("正在抽帧、切四方向、中心化并寻找循环...");
+    setFrameStatus("正在一键处理步行视频...");
     try {
       const result = await processFourDirectionVideo({
         jobId: videoJobId,
@@ -1343,9 +1343,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       setFourDirectionResult(normalizeFourDirectionResult(result));
       setActiveFrameIndex(0);
       setIsPlayingFrames(true);
-      setFrameStatus(`步行四方向处理完成：抽帧 ${result.frameCount} 帧，已生成走路循环。`);
+      setFrameStatus(`步行处理完成：抽帧 ${result.frameCount} 帧，已生成走路循环。`);
     } catch (error: unknown) {
-      setFrameStatus(`步行四方向处理失败：${getErrorMessage(error)}`);
+      setFrameStatus(`步行处理失败：${getErrorMessage(error)}`);
     } finally {
       setIsProcessingFrames(false);
     }
@@ -1357,11 +1357,11 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       return;
     }
     if (!fourDirectionResult?.directions.length) {
-      setFrameStatus("请先完成步行四方向一键处理，再处理待机四方向。");
+      setFrameStatus("请先完成步行一键处理，再处理待机。");
       return;
     }
     setIsProcessingFrames(true);
-    setFrameStatus("正在按步行导出尺寸和中心规则处理待机四方向...");
+    setFrameStatus("正在按步行导出尺寸和中心规则处理待机...");
     try {
       const idle = await processIdleFourDirection({
         characterId,
@@ -1372,9 +1372,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         ...current,
         idle
       }) : current);
-      setFrameStatus("待机四方向处理完成。");
+      setFrameStatus("待机处理完成。");
     } catch (error: unknown) {
-      setFrameStatus(`待机四方向处理失败：${getErrorMessage(error)}`);
+      setFrameStatus(`待机处理失败：${getErrorMessage(error)}`);
     } finally {
       setIsProcessingFrames(false);
     }
@@ -1471,7 +1471,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
     updateAdvancedAction("run", {
       isGeneratingKeyframe: true,
-      status: "正在生成跑步四方向首帧..."
+      status: "正在生成跑步首帧..."
     });
     try {
       const characterTemplateImageDataUrl = await readImageUrlAsDataUrl(walkDirectionOutputPreview.url);
@@ -1489,7 +1489,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       const imageUrl = extractImageUrl(response);
       const publicUrl = extractPublicUrl(response) ?? imageUrl;
       if (!imageUrl) {
-        throw new Error("跑步四方向首帧生成没有返回图片。");
+        throw new Error("跑步首帧生成没有返回图片。");
       }
       const preview = {
         name: extractFileName(response) ?? "run-4dir.png",
@@ -1499,10 +1499,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       updateAdvancedAction("run", {
         keyframePreview: preview,
         inputPreview: preview,
-        status: "跑步四方向首帧已生成，可提交跑步视频任务。"
+        status: "跑步首帧已生成，可提交跑步视频任务。"
       });
     } catch (error: unknown) {
-      updateAdvancedAction("run", { status: `跑步四方向首帧生成失败：${getErrorMessage(error)}` });
+      updateAdvancedAction("run", { status: `跑步首帧生成失败：${getErrorMessage(error)}` });
     } finally {
       updateAdvancedAction("run", { isGeneratingKeyframe: false });
     }
@@ -1555,7 +1555,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
     const startFrame = advancedActions[actionKind].inputPreview;
     if (!startFrame) {
-      updateAdvancedAction(actionKind, { status: "请先准备攻击四方向1起始帧，再生成攻击中间帧。" });
+      updateAdvancedAction(actionKind, { status: "请先准备攻击 1 起始帧，再生成攻击中间帧。" });
       return;
     }
     if (!advancedAttackMidframeCustomPrompt.trim()) {
@@ -1564,7 +1564,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
     updateAdvancedAction(actionKind, {
       isGeneratingMidframe: true,
-      status: "正在生成攻击四方向1中间帧..."
+      status: "正在生成攻击 1 中间帧..."
     });
     try {
       const startFrameImageDataUrl = await readImageUrlAsDataUrl(startFrame.url);
@@ -1862,12 +1862,12 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   };
 
   const handleSaveDirectionTemplateDraft = async () => {
-    setDirectionTemplateStatus("正在保存四方向模板配置到后端...");
+    setDirectionTemplateStatus("正在保存基础动作配置到后端...");
     try {
       await saveDraft();
-      setDirectionTemplateStatus("四方向模板配置已保存到后端并完全覆盖。");
+      setDirectionTemplateStatus("基础动作配置已保存到后端并完全覆盖。");
     } catch (error: unknown) {
-      setDirectionTemplateStatus(`四方向模板配置保存失败：${getErrorMessage(error)}`);
+      setDirectionTemplateStatus(`基础动作配置保存失败：${getErrorMessage(error)}`);
     }
   };
 
@@ -2105,7 +2105,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <div className="module01-settings-fields">
                       <div className="form-grid">
                         <label className="field">
-                          四方向图像模型
+                          图像模型
                           <select aria-label="设置步行图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
                             {imageModels.map((model) => (
                               <option key={model.id} value={model.id}>{model.label}</option>
@@ -2113,7 +2113,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                           </select>
                         </label>
                         <label className="field">
-                          四方向图片生成尺寸
+                          图片尺寸
                           <select aria-label="设置步行图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
                             {directionImageGenerationSizeOptions.map((option) => (
                               <option key={option.size} value={option.size}>{option.label}</option>
@@ -2145,7 +2145,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <div className="module01-settings-fields">
                       <div className="form-grid">
                         <label className="field">
-                          四方向图像模型
+                          图像模型
                           <select aria-label="设置待机图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
                             {imageModels.map((model) => (
                               <option key={model.id} value={model.id}>{model.label}</option>
@@ -2153,7 +2153,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                           </select>
                         </label>
                         <label className="field">
-                          四方向图片生成尺寸
+                          图片尺寸
                           <select aria-label="设置待机图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
                             {directionImageGenerationSizeOptions.map((option) => (
                               <option key={option.size} value={option.size}>{option.label}</option>
@@ -2373,7 +2373,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <label><input aria-label="一键生成步行" type="checkbox" checked disabled readOnly /> 步行</label>
                     <label><input aria-label="一键生成待机" type="checkbox" checked disabled readOnly /> 待机</label>
                     <label><input aria-label="一键生成跑步" type="checkbox" checked={oneClickIncludeRun} onChange={(event) => setOneClickIncludeRun(event.target.checked)} /> 跑步</label>
-                    <label><input aria-label="一键生成攻击四方向1" type="checkbox" checked={oneClickIncludeAttack} onChange={(event) => setOneClickIncludeAttack(event.target.checked)} /> 攻击四方向1</label>
+                    <label><input aria-label="一键生成攻击 1" type="checkbox" checked={oneClickIncludeAttack} onChange={(event) => setOneClickIncludeAttack(event.target.checked)} /> 攻击 1</label>
                     <label><input aria-label="一键生成跳跃" type="checkbox" checked={oneClickIncludeJump} onChange={(event) => setOneClickIncludeJump(event.target.checked)} /> 跳跃</label>
                   </div>
                   <div className="one-click-progress-panel">
@@ -2574,9 +2574,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <WandSparkles size={16} /> {processingDirectionTemplate === "walk" ? "生成中" : "生成步行 2x2"}
                   </button>
                   <label className="file-picker">
-                    <Upload size={16} /> 上传四方向步行图
+                    <Upload size={16} /> 上传 2x2 步行图
                     <input
-                      aria-label="上传四方向步行图"
+                      aria-label="上传 2x2 步行图"
                       className="visually-hidden"
                       type="file"
                       accept="image/*"
@@ -2591,16 +2591,16 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                 </div>
                 <div className="form-grid">
                   <label className="field">
-                    四方向图像模型
-                    <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
+                    图像模型
+                    <select aria-label="图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
                       {imageModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
                   </label>
                   <label className="field">
-                    四方向图片生成尺寸
-                    <select aria-label="四方向图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
+                    图片尺寸
+                    <select aria-label="图片尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
                       {directionImageGenerationSizeOptions.map((option) => (
                         <option key={option.size} value={option.size}>{option.label}</option>
                       ))}
@@ -2770,25 +2770,24 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           ) : null}
 
           {activePage === "idle" ? (
-          <WorkflowStage
-            title="待机四方向"
-            status={`${directionTemplateStatus} / ${frameStatus}`}
-            mediaPanes={[
-              {
-                title: "步行 2x2 基准",
-                content: <ImagePreview alt="步行 2x2 基准预览" preview={walkDirectionOutputPreview ?? videoInputPreview} emptyLabel="等待步行 2x2" />
-              },
-              {
-                title: "待机 2x2 输出",
-                content: <ImagePreview alt="待机 2x2 输出预览" preview={idleDirectionOutputPreview} emptyLabel="先生成待机 2x2" />
-              },
-              {
-                title: "待机四方向预览",
-                content: <IdleSpriteSheetPreview idle={fourDirectionResult?.idle} />
-              }
-            ]}
-            controls={(
-              <>
+            <Module01PageStage
+              title="待机"
+              status={`${directionTemplateStatus} / ${frameStatus}`}
+              statusItems={[
+                { label: "步行图片", value: walkDirectionOutputPreview || videoInputPreview ? "已准备" : "缺少", state: walkDirectionOutputPreview || videoInputPreview ? "ready" : "missing" },
+                { label: "待机图片", value: idleDirectionOutputPreview ? "已准备" : "缺少", state: idleDirectionOutputPreview ? "ready" : "missing" },
+                { label: "待机结果", value: fourDirectionResult?.idle ? "已处理" : "未处理", state: fourDirectionResult?.idle ? "done" : "missing" }
+              ]}
+            >
+              <Module01ActionSection title="待机图片">
+                <Module01MediaGrid>
+                  <MediaPane title="步行 2x2 基准">
+                    <ImagePreview alt="步行 2x2 基准预览" preview={walkDirectionOutputPreview ?? videoInputPreview} emptyLabel="等待步行 2x2" />
+                  </MediaPane>
+                  <MediaPane title="待机 2x2 输出">
+                    <ImagePreview alt="待机 2x2 输出预览" preview={idleDirectionOutputPreview} emptyLabel="先生成待机 2x2" />
+                  </MediaPane>
+                </Module01MediaGrid>
                 <div className="control-row">
                   <button
                     className="tool-button primary"
@@ -2796,30 +2795,21 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     disabled={processingDirectionTemplate !== null || !walkDirectionOutputPreview}
                     onClick={() => void handleGenerateDirectionTemplate("idle")}
                   >
-                    <WandSparkles size={16} /> {processingDirectionTemplate === "idle" ? "生成中" : "基于步行图生成待机四方向图"}
+                    <WandSparkles size={16} /> {processingDirectionTemplate === "idle" ? "生成中" : "生成待机 2x2"}
                   </button>
-                  <button
-                    className="tool-button primary"
-                    type="button"
-                    disabled={isProcessingFrames || !fourDirectionResult?.directions.length}
-                    onClick={() => void handleProcessIdleDirection()}
-                  >
-                    <Scissors size={16} /> {isProcessingFrames ? "处理中" : "一键处理待机四方向"}
-                  </button>
-                  <span className="state-pill">{fourDirectionResult?.directions.length ? "已读取步行处理结果，可对齐待机。" : "请先完成步行四方向一键处理。"}</span>
                 </div>
                 <div className="form-grid">
                   <label className="field">
-                    四方向图像模型
-                    <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
+                    图像模型
+                    <select aria-label="图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
                       {imageModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
                   </label>
                   <label className="field">
-                    四方向图片生成尺寸
-                    <select aria-label="四方向图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
+                    图片尺寸
+                    <select aria-label="图片尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
                       {directionImageGenerationSizeOptions.map((option) => (
                         <option key={option.size} value={option.size}>{option.label}</option>
                       ))}
@@ -2829,40 +2819,63 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     抠图背景
                     <input type="color" value={keyColor} onChange={(event) => setKeyColor(event.target.value)} />
                   </label>
-                  <label className="field">
-                    抠图容差
-                    <input aria-label="抠图容差" type="number" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(clamp(Number(event.target.value), 0, 255))} />
-                  </label>
                 </div>
-              </>
-            )}
-            footer={(
-              <div className="prompt-panel direction-prompt-panel">
-                <section className="prompt-section">
-                  <h3>待机四方向提示词</h3>
-                  <div className="prompt-grid">
-                    <label className="field">
-                      待机系统提示词
-                      <textarea aria-label="待机系统提示词" value={directionIdleSystemPrompt} rows={7} onChange={(event) => setDirectionIdleSystemPrompt(event.target.value)} />
+                <Module01AdvancedDetails title="待机图片提示词">
+                  <section className="prompt-section">
+                    <h3>待机图片提示词</h3>
+                    <div className="prompt-grid">
+                      <label className="field">
+                        待机系统提示词
+                        <textarea aria-label="待机系统提示词" value={directionIdleSystemPrompt} rows={7} onChange={(event) => setDirectionIdleSystemPrompt(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        待机自定义提示词
+                        <textarea aria-label="待机自定义提示词" placeholder="填写待机姿态、气质、细节要求" value={directionIdleCustomPrompt} rows={7} onChange={(event) => setDirectionIdleCustomPrompt(event.target.value)} />
+                      </label>
+                    </div>
+                    <label className="field prompt-final">
+                      待机最终提示词
+                      <textarea aria-label="待机最终提示词" value={finalDirectionIdlePrompt} rows={5} readOnly />
                     </label>
+                  </section>
+                  <button className="tool-button" type="button" onClick={handleSaveDirectionTemplateDraft}>
+                    <Save size={16} /> 保存待机配置
+                  </button>
+                </Module01AdvancedDetails>
+              </Module01ActionSection>
+              <Module01ActionSection title="待机一键处理">
+                <div className="control-row">
+                  <button
+                    className="tool-button primary"
+                    type="button"
+                    disabled={isProcessingFrames || !fourDirectionResult?.directions.length}
+                    onClick={() => void handleProcessIdleDirection()}
+                  >
+                    <Scissors size={16} /> {isProcessingFrames ? "处理中" : "一键处理"}
+                  </button>
+                  <span className="state-pill">{fourDirectionResult?.directions.length ? "已读取步行处理结果，可对齐待机。" : "请先完成步行一键处理。"}</span>
+                </div>
+                <Module01AdvancedDetails title="待机处理参数">
+                  <div className="form-grid">
                     <label className="field">
-                      待机自定义提示词
-                      <textarea aria-label="待机自定义提示词" placeholder="填写待机姿态、气质、细节要求" value={directionIdleCustomPrompt} rows={7} onChange={(event) => setDirectionIdleCustomPrompt(event.target.value)} />
+                      抠图容差
+                      <input aria-label="抠图容差" type="number" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(clamp(Number(event.target.value), 0, 255))} />
                     </label>
                   </div>
-                  <label className="field prompt-final">
-                    待机最终提示词
-                    <textarea aria-label="待机最终提示词" value={finalDirectionIdlePrompt} rows={5} readOnly />
-                  </label>
-                </section>
-                <div className="control-row">
-                  <button className="tool-button" type="button" onClick={handleSaveDirectionTemplateDraft}>
-                    <Save size={16} /> 保存待机四方向配置
-                  </button>
-                </div>
+                </Module01AdvancedDetails>
+              </Module01ActionSection>
+              <Module01ActionSection title="待机结果">
+                <Module01MediaGrid>
+                  <MediaPane title="待机 Sprite Sheet">
+                    <IdleSpriteSheetPreview idle={fourDirectionResult?.idle} />
+                  </MediaPane>
+                  <MediaPane title="待机处理状态">
+                    <EmptyMedia label={fourDirectionResult?.idle ? "待机已处理" : "等待待机处理"} />
+                  </MediaPane>
+                </Module01MediaGrid>
                 <section className="loop-result-section">
                   <div className="loop-section-heading">
-                    <h3>待机四方向处理结果</h3>
+                    <h3>待机处理结果</h3>
                     <span>{fourDirectionResult?.idle ? "已按步行导出规格对齐" : "等待待机一键处理"}</span>
                   </div>
                   <IdleDirectionPreviewGrid idle={fourDirectionResult?.idle} />
@@ -2870,9 +2883,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                 <div className="control-row">
                   <DownloadLink href={fourDirectionResult?.idle?.spriteSheetUrl} label="导出待机 Sprite Sheet" />
                 </div>
-              </div>
-            )}
-          />
+              </Module01ActionSection>
+            </Module01PageStage>
           ) : null}
 
           {activePage === "run" ? (
@@ -3101,7 +3113,7 @@ function GodotExportStage({
             <Download size={18} /> {isExporting ? "导出中..." : "生成 Godot 导出包"}
           </button>
           <p className="prompt-hint">
-            当前角色：{activeCharacterId || "未选择角色"}。导出会读取该角色已经处理好的待机、步行、跑步、攻击四方向1、跳跃四方向透明帧。
+            当前角色：{activeCharacterId || "未选择角色"}。导出会读取该角色已经处理好的待机、步行、跑步、攻击 1、跳跃透明帧。
           </p>
         </div>
         <div className="export-actions godot-export-result">
@@ -3325,7 +3337,7 @@ function AdvancedActionStage({
         },
         {
           title: "跑步首帧",
-          content: <ImagePreview alt="跑步四方向首帧预览" preview={keyframePreview ?? inputPreview ?? null} emptyLabel="等待跑步首帧" />
+          content: <ImagePreview alt="跑步首帧预览" preview={keyframePreview ?? inputPreview ?? null} emptyLabel="等待跑步首帧" />
         },
         {
           title: "跑步视频",
@@ -3336,23 +3348,24 @@ function AdvancedActionStage({
         {
           title: actionKind === "attack-1" ? "攻击起始帧" : "跳跃视频",
           content: actionKind === "attack-1"
-            ? <ImagePreview alt="攻击四方向1起始帧预览" preview={inputPreview ?? null} emptyLabel="等待攻击起始帧" />
+            ? <ImagePreview alt="攻击 1 起始帧预览" preview={inputPreview ?? null} emptyLabel="等待攻击起始帧" />
             : <VideoPreview label="跳跃视频预览" preview={outputPreview ?? null} emptyLabel="等待跳跃视频" />
         },
         ...(actionKind === "attack-1" ? [{
           title: "攻击中间帧",
-          content: <ImagePreview alt="攻击四方向1中间帧预览" preview={middleFramePreview ?? null} emptyLabel="等待攻击中间帧" />
+          content: <ImagePreview alt="攻击 1 中间帧预览" preview={middleFramePreview ?? null} emptyLabel="等待攻击中间帧" />
         }] : []),
         {
           title: actionKind === "attack-1" ? "攻击视频" : "动作输出",
           content: actionKind === "attack-1"
-            ? <VideoPreview label="攻击四方向1视频预览" preview={outputPreview ?? null} emptyLabel="等待攻击视频" />
-            : result ? <DirectionPreviewGrid directions={result.directions} frameIndex={0} frameSelector={(direction) => direction.transparentFrames} imageAltSuffix="跳跃四方向预览" showLoopInfo /> : <EmptyMedia label="等待动作处理结果" />
+            ? <VideoPreview label="攻击 1 视频预览" preview={outputPreview ?? null} emptyLabel="等待攻击视频" />
+            : result ? <DirectionPreviewGrid directions={result.directions} frameIndex={0} frameSelector={(direction) => direction.transparentFrames} imageAltSuffix="跳跃预览" showLoopInfo /> : <EmptyMedia label="等待动作处理结果" />
         }
       ];
 
   const primaryPromptPrefix = actionKind === "run" ? "跑步首帧" : "视频";
   const sectionTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
+  const labelTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
 
   return (
     <Module01PageStage
@@ -3376,7 +3389,7 @@ function AdvancedActionStage({
           <div className="control-row">
             {onGenerateKeyframe ? (
               <button className="tool-button primary" type="button" disabled={isGeneratingKeyframe} onClick={onGenerateKeyframe}>
-                <WandSparkles size={16} /> {isGeneratingKeyframe ? "生成中" : "生成跑步四方向首帧"}
+                <WandSparkles size={16} /> {isGeneratingKeyframe ? "生成中" : "生成跑步首帧"}
               </button>
             ) : null}
             {onPrepareInput ? (
@@ -3428,7 +3441,7 @@ function AdvancedActionStage({
               <label className="field">
                 准备缩放比例
                 <input
-                  aria-label={`${title}准备缩放比例`}
+                  aria-label={labelTitle("准备缩放比例")}
                   type="number"
                   min="0.45"
                   max="0.95"
@@ -3595,14 +3608,14 @@ function DirectionPreviewGrid({
 
 function IdleSpriteSheetPreview({ idle }: { idle: ProcessFourDirectionResult["idle"] | undefined }) {
   if (!idle?.spriteSheetUrl) {
-    return <EmptyMedia label="等待待机四方向处理" />;
+    return <EmptyMedia label="等待待机处理" />;
   }
-  return <img alt="待机四方向预览" src={idle.spriteSheetUrl} />;
+  return <img alt="待机预览" src={idle.spriteSheetUrl} />;
 }
 
 function IdleDirectionPreviewGrid({ idle }: { idle: ProcessFourDirectionResult["idle"] | undefined }) {
   if (!idle?.frames.length) {
-    return <EmptyPanel label="等待待机四方向处理结果" />;
+    return <EmptyPanel label="等待待机处理结果" />;
   }
   return (
     <div className="direction-preview-grid">
@@ -3635,7 +3648,7 @@ function FourDirectionResultPanel({
       <div className="loop-preview-duo">
         <section className="loop-result-section">
           <div className="loop-section-heading">
-            <h3>四方向最终循环预览</h3>
+            <h3>最终循环预览</h3>
             <span>{result ? `${result.directions.length} 个方向 · ${isPlaying ? "播放中" : "已停止"}` : "等待抠图预览"}</span>
           </div>
           {result ? (
@@ -3650,7 +3663,7 @@ function FourDirectionResultPanel({
         </section>
         <section className="loop-result-section">
           <div className="loop-section-heading">
-            <h3>待机四方向预览</h3>
+            <h3>待机预览</h3>
             <span>{result?.idle ? "已拆解、抠图并按走路比例缩放" : "等待待机处理"}</span>
           </div>
           <IdleDirectionPreviewGrid idle={result?.idle} />
@@ -3752,12 +3765,12 @@ function CharacterPreviewStage({
     : (isWalking || isRunning) && activeMoveFrames.length > 0
     ? (frameIndex % activeMoveFrames.length) + 1
     : 1;
-  const actionLabel = isPlayingOneShot ? (oneShotAction === "attack1" ? "攻击四方向1" : "跳跃四方向") : isRunning ? "跑步" : isWalking ? "行走" : "待机";
+  const actionLabel = isPlayingOneShot ? (oneShotAction === "attack1" ? "攻击 1" : "跳跃") : isRunning ? "跑步" : isWalking ? "行走" : "待机";
   const statusLabel = !characterId
     ? "请先创建或选择角色文件夹"
     : previewAssets.hasRequiredAssets
       ? `${actionLabel} / 面朝${PREVIEW_DIRECTION_LABELS[activeDirection]}`
-      : "缺少预览资源，请先完成步行四方向和待机四方向处理";
+      : "缺少预览资源，请先完成步行和待机处理";
 
   const buildPreviewSettings = (): CharacterPreviewSettings => ({
     idleFps,
@@ -4006,7 +4019,7 @@ function CharacterPreviewStage({
             <kbd>J</kbd>
             <kbd>Space</kbd>
           </div>
-          <p className="preview-help-text">WASD 行走，Shift 跑步，J 攻击四方向1，Space 跳跃四方向。</p>
+          <p className="preview-help-text">WASD 行走，Shift 跑步，J 攻击 1，Space 跳跃。</p>
           <div className="form-grid">
             <label className="field">
               待机 FPS
@@ -4021,12 +4034,12 @@ function CharacterPreviewStage({
               <input aria-label="角色预览跑步 FPS" type="number" min={1} max={FPS_MAX} value={runFps} onChange={(event) => setRunFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
             </label>
             <label className="field">
-              攻击四方向1 FPS
-              <input aria-label="角色预览攻击四方向1 FPS" type="number" min={1} max={FPS_MAX} value={attackFps} onChange={(event) => setAttackFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
+              攻击 1 FPS
+              <input aria-label="角色预览攻击 1 FPS" type="number" min={1} max={FPS_MAX} value={attackFps} onChange={(event) => setAttackFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
             </label>
             <label className="field">
-              跳跃四方向 FPS
-              <input aria-label="角色预览跳跃四方向 FPS" type="number" min={1} max={FPS_MAX} value={jumpFps} onChange={(event) => setJumpFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
+              跳跃 FPS
+              <input aria-label="角色预览跳跃 FPS" type="number" min={1} max={FPS_MAX} value={jumpFps} onChange={(event) => setJumpFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
             </label>
             <label className="field">
               显示尺寸
@@ -4076,7 +4089,7 @@ function CharacterPreviewStage({
               <span>{previewAssets.runDirectionCount} / 4 方向，{previewAssets.runFrameCount} 帧</span>
             </div>
             <div>
-              <strong>攻击四方向1</strong>
+              <strong>攻击 1</strong>
               <span>{previewAssets.attackDirectionCount} / 4 方向，{previewAssets.attackFrameCount} 帧</span>
             </div>
             <div>
@@ -4771,12 +4784,12 @@ function normalizeProcessedFrame(frame: ProcessedFrame, version: string): Proces
 
 function getAdvancedActionLabel(actionKind: AdvancedActionKind): string {
   if (actionKind === "run") {
-    return "跑步四方向";
+    return "跑步";
   }
   if (actionKind === "attack-1") {
-    return "攻击四方向1";
+    return "攻击 1";
   }
-  return "跳跃四方向";
+  return "跳跃";
 }
 
 function formatOneClickJobStatus(job: OneClickCharacterJob): string {

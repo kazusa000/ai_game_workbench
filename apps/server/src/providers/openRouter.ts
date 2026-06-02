@@ -205,7 +205,7 @@ export class OpenRouterClient {
 
   constructor(options: OpenRouterClientOptions) {
     this.apiKey = options.apiKey;
-    this.baseUrl = options.baseUrl ?? "https://openrouter.ai/api/v1";
+    this.baseUrl = (options.baseUrl ?? "https://openrouter.ai/api/v1").replace(/\/+$/, "");
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 

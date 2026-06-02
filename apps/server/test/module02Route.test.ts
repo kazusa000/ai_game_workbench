@@ -21,10 +21,12 @@ function makeStorageDir() {
   return dir;
 }
 
+const TEST_OPENROUTER_API_KEY = "sk-or-v1-web-key";
+
 describe("module 02 pixel character routes", () => {
   it("creates, lists, loads, and deletes pixel character folders", async () => {
     const storageDir = makeStorageDir();
-    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
+    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg", openRouterApiKey: TEST_OPENROUTER_API_KEY });
     await app.ready();
 
     const createResponse = await app.inject({
@@ -71,7 +73,7 @@ describe("module 02 pixel character routes", () => {
 
   it("uploads module 02 assets under characters_pixel and returns module02 URLs", async () => {
     const storageDir = makeStorageDir();
-    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
+    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg", openRouterApiKey: TEST_OPENROUTER_API_KEY });
     await app.ready();
     await app.inject({
       method: "POST",
@@ -143,7 +145,7 @@ describe("module 02 pixel character routes", () => {
       })
     );
     vi.stubGlobal("fetch", fetchMock);
-    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
+    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg", openRouterApiKey: TEST_OPENROUTER_API_KEY });
     await app.ready();
     await app.inject({
       method: "POST",
@@ -170,7 +172,6 @@ describe("module 02 pixel character routes", () => {
       method: "POST",
       url: "/api/module02/generation/sprite-sheet",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
         "x-public-asset-base-url": "https://assets.example.com"
       },
       payload: {

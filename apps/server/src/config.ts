@@ -7,6 +7,9 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export interface AppConfig {
   openRouterApiKey?: string;
+  openAiCompatibleBaseUrl?: string;
+  openAiCompatibleApiKey?: string;
+  adminSettingsToken?: string;
   publicAssetBaseUrl?: string;
   ffmpegPath: string;
   storageDir: string;
@@ -18,6 +21,9 @@ export interface AppConfig {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     openRouterApiKey: env.OPENROUTER_API_KEY,
+    openAiCompatibleBaseUrl: env.OPENAI_COMPATIBLE_BASE_URL,
+    openAiCompatibleApiKey: env.OPENAI_COMPATIBLE_API_KEY,
+    adminSettingsToken: env.ADMIN_SETTINGS_TOKEN,
     publicAssetBaseUrl: env.PUBLIC_ASSET_BASE_URL,
     ffmpegPath: env.FFMPEG_PATH ?? resolveDefaultFfmpegPath(),
     storageDir: resolve(env.STORAGE_DIR ?? "./storage"),

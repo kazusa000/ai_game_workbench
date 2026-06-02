@@ -14,10 +14,14 @@ import { App } from "../src/App";
 const fetchMock = vi.fn();
 const characterBase = "/characters/hero";
 const pixelCharacterBase = "/module02/characters/pixel-hero";
+const APIMART_IMAGE_MODEL = "apimart/gpt-image-2";
+const OPENROUTER_IMAGE_MODEL = "openai/gpt-5.4-image-2";
+const NANO_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
 let videoStatusPayload: unknown;
 let module01WorkflowConfigPayload: unknown;
 let advancedCharacterAssetsPayload: unknown;
 let pixelCharacters: Array<{ id: string; name: string }>;
+let adminProviderSettingsPayload: ReturnType<typeof makeAdminProviderSettingsResponse>;
 
 beforeEach(() => {
   const NativeURL = globalThis.URL;
@@ -36,7 +40,32 @@ beforeEach(() => {
   module01WorkflowConfigPayload = null;
   advancedCharacterAssetsPayload = undefined;
   pixelCharacters = [{ id: "pixel-hero", name: "pixel-hero" }];
+  adminProviderSettingsPayload = makeAdminProviderSettingsResponse();
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/api/provider-models")) {
+      return jsonResponse(makeProviderModelCatalog());
+    }
+    if (url.endsWith("/api/admin/provider-settings")) {
+      const token = readHeader(init?.headers, "x-admin-settings-token");
+      if (token !== "admin-test-token") {
+        return jsonResponse({ error: "Invalid admin settings token" }, false, 401);
+      }
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body ?? "{}"));
+        adminProviderSettingsPayload = {
+          settings: {
+            providers: body.providers,
+            models: body.models,
+            defaults: body.defaults
+          },
+          secrets: {
+            ...adminProviderSettingsPayload.secrets,
+            ...(body.secrets?.["openrouter-compatible"]?.apiKey ? { "openrouter-compatible": { configured: true, suffix: "test" } } : {})
+          }
+        };
+      }
+      return jsonResponse(adminProviderSettingsPayload);
+    }
     if (url.endsWith("/api/module02/characters")) {
       if (init?.method === "POST") {
         const body = JSON.parse(String(init.body ?? "{}"));
@@ -152,12 +181,6 @@ beforeEach(() => {
         return jsonResponse({ config: module01WorkflowConfigPayload });
       }
       return jsonResponse({ config: module01WorkflowConfigPayload });
-    }
-    if (url.endsWith("/api/module01/secrets/openrouter-key")) {
-      if (init?.method === "PUT") {
-        return jsonResponse({ configured: true, suffix: "test" });
-      }
-      return jsonResponse({ configured: false });
     }
     if (url.endsWith("/api/module01/one-click-character-jobs") && init?.method === "POST") {
       return jsonResponse({
@@ -446,9 +469,170 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+function makeProviderModelCatalog() {
+  const providers = [
+    {
+      id: "openrouter",
+      label: "OpenRouter",
+      kind: "openrouter",
+      enabled: true,
+      baseUrl: "https://openrouter.ai/api/v1"
+    },
+    {
+      id: "openrouter-compatible",
+      label: "APIMart images endpoint",
+      kind: "openai-images",
+      enabled: true,
+      baseUrl: "https://api.apimart.ai/v1"
+    },
+    {
+      id: "local-codex",
+      label: "Local Codex image",
+      kind: "local-codex",
+      enabled: true
+    }
+  ];
+  const imageModels = [
+    {
+      id: APIMART_IMAGE_MODEL,
+      providerId: "openrouter-compatible",
+      upstreamModel: "gpt-image-2",
+      label: "APIMart GPT-Image-2",
+      capability: "image",
+      enabled: true,
+      imageSizeOptions: [
+        { size: 1024, label: "1024 x 1024 (1K)" },
+        { size: 2048, label: "2048 x 2048 (2K)" },
+        { size: 2880, label: "2880 x 2880 (4K)" }
+      ],
+      defaultImageSize: 1024
+    },
+    {
+      id: "local/gpt-image-2",
+      providerId: "local-codex",
+      upstreamModel: "local/gpt-image-2",
+      label: "local GPT image2",
+      capability: "image",
+      enabled: true,
+      imageSizeOptions: [
+        { size: 1024, label: "1024 x 1024" },
+        { size: 2048, label: "2048 x 2048" },
+        { size: 2880, label: "2880 x 2880" }
+      ],
+      defaultImageSize: 1024
+    },
+    {
+      id: OPENROUTER_IMAGE_MODEL,
+      providerId: "openrouter",
+      upstreamModel: OPENROUTER_IMAGE_MODEL,
+      label: "GPT Image 2",
+      capability: "image",
+      enabled: true,
+      imageSizeOptions: [
+        { size: 1024, label: "1024 x 1024 (1K)" },
+        { size: 2048, label: "2048 x 2048 (2K)" },
+        { size: 2880, label: "2880 x 2880" }
+      ],
+      defaultImageSize: 1024
+    },
+    {
+      id: NANO_IMAGE_MODEL,
+      providerId: "openrouter",
+      upstreamModel: NANO_IMAGE_MODEL,
+      label: "Nano Banana 2",
+      capability: "image",
+      enabled: true,
+      imageSizeOptions: [
+        { size: 512, label: "512 x 512 (0.5K)" },
+        { size: 1024, label: "1024 x 1024 (1K)" },
+        { size: 2048, label: "2048 x 2048 (2K)" },
+        { size: 4096, label: "4096 x 4096 (4K)" }
+      ],
+      defaultImageSize: 1024
+    }
+  ];
+  const videoModels = [
+    {
+      id: "x-ai/grok-imagine-video",
+      providerId: "openrouter",
+      upstreamModel: "x-ai/grok-imagine-video",
+      label: "Grok Imagine Video",
+      capability: "video",
+      enabled: true,
+      durationOptions: [1, 2, 3],
+      defaultDurationSeconds: 1,
+      resolutionOptions: ["480p", "720p"],
+      defaultResolution: "480p"
+    },
+    {
+      id: "bytedance/seedance-2.0",
+      providerId: "openrouter",
+      upstreamModel: "bytedance/seedance-2.0",
+      label: "Seedance 2.0",
+      capability: "video",
+      enabled: true,
+      durationOptions: [4, 5, 6],
+      defaultDurationSeconds: 4,
+      resolutionOptions: ["480p", "720p", "1080p"],
+      defaultResolution: "720p"
+    },
+    {
+      id: "kwaivgi/kling-v3.0-std",
+      providerId: "openrouter",
+      upstreamModel: "kwaivgi/kling-v3.0-std",
+      label: "Kling v3.0 Standard",
+      capability: "video",
+      enabled: true,
+      durationOptions: [3, 4, 5],
+      defaultDurationSeconds: 3,
+      resolutionOptions: ["720p"],
+      defaultResolution: "720p"
+    },
+    {
+      id: "kwaivgi/kling-v3.0-pro",
+      providerId: "openrouter",
+      upstreamModel: "kwaivgi/kling-v3.0-pro",
+      label: "Kling v3.0 Pro",
+      capability: "video",
+      enabled: true,
+      durationOptions: [3, 4, 5],
+      defaultDurationSeconds: 3,
+      resolutionOptions: ["720p"],
+      defaultResolution: "720p"
+    }
+  ];
+  return {
+    providers,
+    models: [...imageModels, ...videoModels],
+    imageModels,
+    videoModels,
+    defaults: {
+      imageModelId: APIMART_IMAGE_MODEL,
+      videoModelId: "bytedance/seedance-2.0"
+    }
+  };
+}
+
+function makeAdminProviderSettingsResponse() {
+  const catalog = makeProviderModelCatalog();
+  return {
+    settings: {
+      providers: catalog.providers,
+      models: catalog.models,
+      defaults: catalog.defaults
+    },
+    secrets: {
+      openrouter: { configured: false },
+      "openrouter-compatible": { configured: true, suffix: "test" },
+      "local-codex": { configured: false }
+    }
+  };
+}
 
 function jsonResponse(body: unknown, ok = true, status = 200) {
   return {
@@ -530,6 +714,44 @@ function openPixelSpriteGenerator() {
 }
 
 describe("App", () => {
+  it("opens API settings and saves APIMart as the default image provider", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /API Settings/i }));
+    expect(screen.getByRole("heading", { name: "API Settings" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Admin settings token"), {
+      target: { value: "admin-test-token" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+    expect(await screen.findByDisplayValue("https://api.apimart.ai/v1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Default image model")).toHaveValue(APIMART_IMAGE_MODEL);
+    expect(screen.getByPlaceholderText("Configured ...test")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/^sk-/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("APIMart images endpoint API key"), {
+      target: { value: "sk-new-test" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("Provider settings saved.");
+    const saveCall = fetchMock.mock.calls.findLast(([url, init]) =>
+      String(url).endsWith("/api/admin/provider-settings") && (init as RequestInit | undefined)?.method === "PUT"
+    );
+    expect(readHeader(saveCall?.[1]?.headers, "x-admin-settings-token")).toBe("admin-test-token");
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
+      defaults: {
+        imageModelId: APIMART_IMAGE_MODEL
+      },
+      secrets: {
+        "openrouter-compatible": {
+          apiKey: "sk-new-test"
+        }
+      }
+    });
+  });
+
   it("opens module 02 with its own pixel character sidebar and delete action", async () => {
     const confirmMock = vi.fn(() => true);
     vi.stubGlobal("confirm", confirmMock);
@@ -629,9 +851,9 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "参考图设置" })).toBeInTheDocument();
     expect(screen.queryByAltText("赛璐璐画风参考图预览")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("上传画风参考图")).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/图像模型/i)).toHaveValue("openai/gpt-5.4-image-2");
+    expect(screen.getByLabelText(/图像模型/i)).toHaveValue(APIMART_IMAGE_MODEL);
     expect(screen.getByRole("option", { name: "local GPT image2" })).toHaveValue("local/gpt-image-2");
-    expect(screen.getByRole("option", { name: /Nano Banana 2/i })).toHaveValue("google/gemini-3.1-flash-image-preview");
+    expect(screen.getByRole("option", { name: /Nano Banana 2/i })).toHaveValue(NANO_IMAGE_MODEL);
     const imageStyleSelect = screen.getByLabelText("图片风格");
     expect(imageStyleSelect).toHaveValue("cel-anime");
     expect(within(imageStyleSelect).getAllByRole("option")).toHaveLength(1);
@@ -964,10 +1186,6 @@ describe("App", () => {
     openSpriteAnimator();
 
     fireEvent.click(screen.getByRole("button", { name: "攻击四方向1" }));
-    fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
-      target: { value: "sk-or-v1-web-key" }
-    });
-
     fireEvent.change(screen.getByLabelText("攻击四方向1准备缩放比例"), {
       target: { value: "0.62" }
     });
@@ -1076,7 +1294,7 @@ describe("App", () => {
     expect(screen.queryByAltText("四方向待机参考图预览")).not.toBeInTheDocument();
     expect(screen.queryByAltText("四方向跑步参考图预览")).not.toBeInTheDocument();
     expect(screen.getByLabelText("上传角色基准模板")).toBeInTheDocument();
-    expect(screen.getByLabelText(/四方向图像模型/i)).toHaveValue("openai/gpt-5.4-image-2");
+    expect(screen.getByLabelText(/四方向图像模型/i)).toHaveValue(APIMART_IMAGE_MODEL);
     expect(screen.getByLabelText(/四方向图片生成尺寸/i)).toHaveValue("1024");
     expect((screen.getByLabelText("步行系统提示词") as HTMLTextAreaElement).value).toContain("动作状态：步行循环关键帧");
     expect(screen.getByRole("button", { name: /生成步行四方向图/i })).toBeInTheDocument();
@@ -1110,7 +1328,7 @@ describe("App", () => {
     expect(screen.getAllByText("待机四方向预览").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("migrates the old Seedream image default to GPT Image 2 while keeping saved keys", () => {
+  it("migrates the old Seedream image default to APIMart without restoring browser keys", () => {
     localStorage.setItem("ai-game-workbench.sprite-animator.workflow.v2", JSON.stringify({
       openRouterApiKey: "sk-or-v1-saved-key",
       imageModel: "bytedance-seed/seedream-4.5"
@@ -1118,8 +1336,8 @@ describe("App", () => {
 
     openSpriteAnimator();
 
-    expect(screen.getByLabelText(/OpenRouter 密钥/i)).toHaveValue("sk-or-v1-saved-key");
-    expect(screen.getByLabelText(/图像模型/i)).toHaveValue("openai/gpt-5.4-image-2");
+    expect(screen.queryByLabelText(/OpenRouter 密钥/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/图像模型/i)).toHaveValue(APIMART_IMAGE_MODEL);
   });
 
   it("shows model-specific first-frame size choices and submits the selected size", async () => {
@@ -1132,7 +1350,7 @@ describe("App", () => {
     expect(within(sizeSelect).getByRole("option", { name: /2880 x 2880/ })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/图像模型/i), {
-      target: { value: "google/gemini-3.1-flash-image-preview" }
+      target: { value: NANO_IMAGE_MODEL }
     });
 
     const nanoSizeSelect = screen.getByLabelText(/图片生成尺寸/i);
@@ -1150,7 +1368,7 @@ describe("App", () => {
       String(url).includes("/api/generation/first-frame") && (init as RequestInit | undefined)?.method === "POST"
     );
     expect(JSON.parse(String(firstFrameCall?.[1]?.body))).toMatchObject({
-      model: "google/gemini-3.1-flash-image-preview",
+      model: NANO_IMAGE_MODEL,
       targetSize: 4096
     });
     expect(JSON.parse(String(firstFrameCall?.[1]?.body))).not.toHaveProperty("direction");
@@ -1235,9 +1453,6 @@ describe("App", () => {
     openSpriteAnimator();
     fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
-    fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
-      target: { value: "sk-or-v1-web-key" }
-    });
     const baseTemplateFile = new File(["base-template"], "base-template.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("上传角色基准模板"), {
       target: { files: [baseTemplateFile] }
@@ -1277,14 +1492,14 @@ describe("App", () => {
     expect(directionCalls).toHaveLength(2);
     expect(JSON.parse(String(directionCalls[0]?.[1]?.body))).toMatchObject({
       templateKind: "walk",
-      model: "openai/gpt-5.4-image-2",
+      model: APIMART_IMAGE_MODEL,
       targetSize: 1024,
       characterTemplateImageDataUrl: expect.stringMatching(/^data:image\/png;base64,/),
       prompt: expect.stringContaining("步行幅度轻微")
     });
     expect(JSON.parse(String(directionCalls[1]?.[1]?.body))).toMatchObject({
       templateKind: "idle",
-      model: "openai/gpt-5.4-image-2",
+      model: APIMART_IMAGE_MODEL,
       targetSize: 1024,
       characterTemplateImageDataUrl: "data:image/png;base64,cHJvY2Vzc2VkLXdhbGstdGVtcGxhdGU=",
       prompt: expect.stringContaining("待机更安静")
@@ -1293,7 +1508,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /保存待机四方向配置/i }));
     const savedDraft = JSON.parse(String(localStorage.getItem("ai-game-workbench.sprite-animator.workflow.v5")));
     expect(savedDraft).toMatchObject({
-      directionImageModel: "openai/gpt-5.4-image-2",
+      directionImageModel: APIMART_IMAGE_MODEL,
       directionImageGenerationSize: 1024,
       directionIdleCustomPrompt: "待机更安静，手臂自然下垂。",
       directionWalkCustomPrompt: "步行幅度轻微，保持角色害羞气质。"
@@ -1302,10 +1517,6 @@ describe("App", () => {
 
   it("runs first-frame processing, video polling, and frame processing through the visible workflow", async () => {
     openSpriteAnimator();
-
-    fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
-      target: { value: "sk-or-v1-web-key" }
-    });
 
     const characterFile = new File(["character-reference"], "character-reference.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("上传角色参考图"), {
@@ -1377,9 +1588,6 @@ describe("App", () => {
     openSpriteAnimator();
     fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
-    fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
-      target: { value: "sk-or-v1-web-key" }
-    });
     const file = new File(["direct-video-frame"], "direct-first-frame.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("上传四方向步行图"), {
       target: { files: [file] }
@@ -1430,9 +1638,6 @@ describe("App", () => {
     openSpriteAnimator();
     fireEvent.click(screen.getByRole("button", { name: "步行四方向" }));
 
-    fireEvent.change(screen.getByLabelText(/OpenRouter 密钥/i), {
-      target: { value: "sk-or-v1-web-key" }
-    });
     fireEvent.change(screen.getByLabelText("上传四方向步行图"), {
       target: { files: [new File(["walk-sheet"], "walk-2x2.png", { type: "image/png" })] }
     });

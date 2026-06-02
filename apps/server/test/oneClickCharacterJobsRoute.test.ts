@@ -18,6 +18,8 @@ function makeStorageDir() {
   return dir;
 }
 
+const TEST_OPENROUTER_API_KEY = "sk-or-v1-test";
+
 function makeStartPayload(overrides: Record<string, unknown> = {}) {
   return {
     characterName: "hero",
@@ -76,6 +78,7 @@ describe("one-click character jobs route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir,
       oneClickCharacterJobRunner: async (_job, context) => {
         context.updateStep("create-character", "completed");
@@ -89,9 +92,6 @@ describe("one-click character jobs route", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/module01/one-click-character-jobs",
-      headers: {
-        "x-openrouter-api-key": "sk-or-v1-test"
-      },
       payload: makeStartPayload()
     });
 
@@ -135,9 +135,6 @@ describe("one-click character jobs route", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/module01/one-click-character-jobs",
-      headers: {
-        "x-openrouter-api-key": "sk-or-v1-test"
-      },
       payload: makeStartPayload({
         actions: {
           run: false,
@@ -153,36 +150,44 @@ describe("one-click character jobs route", () => {
     await app.close();
   });
 
-  it("saves the OpenRouter key locally without exposing the full value", async () => {
+  it("saves provider keys through the admin settings API without exposing the full value", async () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      adminSettingsToken: "admin-test-token",
       storageDir: makeStorageDir()
     });
     await app.ready();
 
     const saveResponse = await app.inject({
       method: "PUT",
-      url: "/api/module01/secrets/openrouter-key",
+      url: "/api/admin/provider-settings",
+      headers: {
+        "x-admin-settings-token": "admin-test-token"
+      },
       payload: {
-        apiKey: "sk-or-v1-secret-tail"
+        providers: [],
+        models: [],
+        defaults: {},
+        secrets: {
+          openrouter: {
+            apiKey: "sk-or-v1-secret-tail"
+          }
+        }
       }
     });
     expect(saveResponse.statusCode).toBe(200);
-    expect(saveResponse.json()).toEqual({
-      configured: true,
-      suffix: "tail"
-    });
+    expect(saveResponse.json().secrets.openrouter).toEqual({ configured: true, suffix: "tail" });
 
     const readResponse = await app.inject({
       method: "GET",
-      url: "/api/module01/secrets/openrouter-key"
+      url: "/api/admin/provider-settings",
+      headers: {
+        "x-admin-settings-token": "admin-test-token"
+      }
     });
     expect(readResponse.statusCode).toBe(200);
-    expect(readResponse.json()).toEqual({
-      configured: true,
-      suffix: "tail"
-    });
+    expect(readResponse.json().secrets.openrouter).toEqual({ configured: true, suffix: "tail" });
     expect(JSON.stringify(readResponse.json())).not.toContain("sk-or-v1-secret-tail");
 
     await app.close();

@@ -1,4 +1,11 @@
-import type { ProjectState, SavedAnimationKeys } from "@ai-game-workbench/core";
+import type {
+  ProjectState,
+  ProviderModelCatalog,
+  ProviderModelDefaults,
+  ProviderModelPreset,
+  ProviderSettings,
+  SavedAnimationKeys
+} from "@ai-game-workbench/core";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
 
@@ -315,7 +322,6 @@ export interface GodotExportResult {
 }
 
 export interface GenerationRequestOptions {
-  openRouterApiKey?: string;
   publicAssetBaseUrl?: string;
   characterId?: string;
   actionKind?: AdvancedActionKind;
@@ -366,6 +372,31 @@ export interface CreateOneClickCharacterJobInput {
 export interface OpenRouterKeyStatus {
   configured: boolean;
   suffix?: string;
+}
+
+export interface ProviderSecretStatus {
+  configured: boolean;
+  suffix?: string;
+}
+
+export interface ProviderSettingsDocument {
+  providers: ProviderSettings[];
+  models: ProviderModelPreset[];
+  defaults: ProviderModelDefaults;
+}
+
+export interface AdminProviderSettingsResponse {
+  settings: ProviderSettingsDocument;
+  secrets: Record<string, ProviderSecretStatus>;
+}
+
+export interface ProviderSecretPatch {
+  apiKey?: string;
+  clear?: boolean;
+}
+
+export interface SaveAdminProviderSettingsInput extends ProviderSettingsDocument {
+  secrets?: Record<string, ProviderSecretPatch>;
 }
 
 export type Module01WorkflowConfig = Record<string, unknown>;
@@ -504,6 +535,42 @@ export async function getPixelSpriteActions(): Promise<PixelSpriteActionTemplate
   return body.actions ?? [];
 }
 
+export async function getProviderModelCatalog(): Promise<ProviderModelCatalog> {
+  const response = await fetch(`${API_BASE}/api/provider-models`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Provider model catalog load failed: ${response.status}`));
+  }
+  return response.json() as Promise<ProviderModelCatalog>;
+}
+
+export async function getAdminProviderSettings(adminToken: string): Promise<AdminProviderSettingsResponse> {
+  const response = await fetch(`${API_BASE}/api/admin/provider-settings`, {
+    headers: buildAdminSettingsHeaders(adminToken)
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Provider settings load failed: ${response.status}`));
+  }
+  return response.json() as Promise<AdminProviderSettingsResponse>;
+}
+
+export async function saveAdminProviderSettings(
+  adminToken: string,
+  input: SaveAdminProviderSettingsInput
+): Promise<AdminProviderSettingsResponse> {
+  const response = await fetch(`${API_BASE}/api/admin/provider-settings`, {
+    method: "PUT",
+    headers: {
+      ...buildAdminSettingsHeaders(adminToken),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Provider settings save failed: ${response.status}`));
+  }
+  return response.json() as Promise<AdminProviderSettingsResponse>;
+}
+
 export async function createSpriteSheetGeneration(
   input: CreateSpriteSheetGenerationInput,
   options: GenerationRequestOptions = {}
@@ -553,26 +620,6 @@ export async function saveModule01WorkflowConfig(config: Module01WorkflowConfig)
   }
   const body = await response.json() as { config?: Module01WorkflowConfig };
   return body.config ?? {};
-}
-
-export async function getSavedOpenRouterKeyStatus(): Promise<OpenRouterKeyStatus> {
-  const response = await fetch(`${API_BASE}/api/module01/secrets/openrouter-key`);
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, `OpenRouter 密钥状态加载失败：${response.status}`));
-  }
-  return response.json() as Promise<OpenRouterKeyStatus>;
-}
-
-export async function saveOpenRouterKey(apiKey: string): Promise<OpenRouterKeyStatus> {
-  const response = await fetch(`${API_BASE}/api/module01/secrets/openrouter-key`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiKey })
-  });
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, `OpenRouter 密钥保存失败：${response.status}`));
-  }
-  return response.json() as Promise<OpenRouterKeyStatus>;
 }
 
 export async function createOneClickCharacterJob(
@@ -895,10 +942,6 @@ function buildGenerationHeaders(options: GenerationRequestOptions): Record<strin
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
   };
-  const apiKey = options.openRouterApiKey?.trim();
-  if (apiKey) {
-    headers["x-openrouter-api-key"] = apiKey;
-  }
   const publicAssetBaseUrl = options.publicAssetBaseUrl?.trim();
   if (publicAssetBaseUrl) {
     headers["x-public-asset-base-url"] = publicAssetBaseUrl;
@@ -912,6 +955,12 @@ function buildGenerationHeaders(options: GenerationRequestOptions): Record<strin
     headers["x-character-action-kind"] = actionKind;
   }
   return headers;
+}
+
+function buildAdminSettingsHeaders(adminToken: string): Record<string, string> {
+  return {
+    "x-admin-settings-token": adminToken
+  };
 }
 
 function buildCharacterHeaders(characterId: string | undefined, actionKind?: AdvancedActionKind): Record<string, string> | undefined {

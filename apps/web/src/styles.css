@@ -122,6 +122,90 @@ h2 {
   line-height: 1.45;
 }
 
+.settings-shell {
+  padding: 28px;
+}
+
+.settings-header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border-bottom: 2px solid #303947;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+}
+
+.settings-band,
+.settings-section {
+  border: 1px solid #303947;
+  border-radius: 8px;
+  background: #141922;
+  padding: 16px;
+}
+
+.settings-token-row,
+.settings-section-heading,
+.settings-defaults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.settings-status {
+  color: #aeb8c7;
+  margin: 12px 0 0;
+}
+
+.settings-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-section h2 {
+  margin-bottom: 12px;
+}
+
+.settings-table {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(92px, .5fr) repeat(3, minmax(180px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #303947;
+  border-radius: 8px;
+  background: #10151d;
+}
+
+.settings-row-model {
+  grid-template-columns: minmax(92px, .45fr) repeat(5, minmax(150px, 1fr)) auto;
+}
+
+.settings-check {
+  min-height: 38px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: #c7d0dd;
+  font-size: 13px;
+}
+
+.tool-button.danger {
+  color: #ffb5a8;
+}
+
+@media (max-width: 1120px) {
+  .settings-row,
+  .settings-row-model {
+    grid-template-columns: 1fr;
+  }
+}
+
 .workbench-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);

@@ -17,7 +17,7 @@ import {
   WandSparkles
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SavedAnimationKeys } from "@ai-game-workbench/core";
+import type { ProviderModelCatalog, SavedAnimationKeys } from "@ai-game-workbench/core";
 import {
   createOneClickCharacterJob,
   createAdvancedActionMidframeGeneration,
@@ -30,13 +30,13 @@ import {
   getCharacterAssets,
   getOneClickCharacterJob,
   getModule01WorkflowConfig,
+  getProviderModelCatalog,
   getVideoGenerationStatus,
   listCharacters,
   prepareAdvancedActionStartFrame,
   processAdvancedActionVideo,
   processFourDirectionVideo,
   processIdleFourDirection,
-  saveOpenRouterKey,
   saveModule01WorkflowConfig,
   toAbsoluteApiUrl,
   uploadFrameVideoAsset,
@@ -178,12 +178,28 @@ const DEFAULT_ATTACK_START_SCALE = 0.74;
 const DEFAULT_JUMP_START_SCALE = 0.78;
 const LEGACY_SEEDREAM_IMAGE_MODEL = "bytedance-seed/seedream-4.5";
 const LOCAL_CODEX_IMAGE_MODEL = "local/gpt-image-2";
+const APIMART_IMAGE_MODEL = "apimart/gpt-image-2";
 interface ImageGenerationSizeOption {
   size: number;
   label: string;
 }
 
+interface ImageModelOption {
+  id: string;
+  label: string;
+  sizeOptions: readonly ImageGenerationSizeOption[];
+}
+
 const IMAGE_MODELS = [
+  {
+    id: APIMART_IMAGE_MODEL,
+    label: "APIMart GPT-Image-2",
+    sizeOptions: [
+      { size: 1024, label: "1024 x 1024 (1K)" },
+      { size: 2048, label: "2048 x 2048 (2K)" },
+      { size: 2880, label: "2880 x 2880 (4K)" }
+    ]
+  },
   {
     id: "openai/gpt-5.4-image-2",
     label: "GPT Image 2 (openai/gpt-5.4-image-2)",
@@ -219,8 +235,8 @@ const IMAGE_MODELS = [
       { size: 1024, label: "1024 x 1024 (默认)" }
     ]
   }
-] as const;
-const DEFAULT_IMAGE_MODEL = IMAGE_MODELS[0].id;
+] satisfies readonly ImageModelOption[];
+const DEFAULT_IMAGE_MODEL = APIMART_IMAGE_MODEL;
 const IMAGE_STYLES = [
   {
     id: "cel-anime",
@@ -409,7 +425,8 @@ const REFERENCE_IMAGE_LABELS: Record<Module01ReferenceImageKind, string> = {
 export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const savedDraft = loadDraft(defaultKeys);
   const [activePage, setActivePage] = useState<Module01Page>("base-template");
-  const [openRouterApiKey, setOpenRouterApiKey] = useState(savedDraft.openRouterApiKey);
+  const openRouterApiKey = "";
+  const [providerModelCatalog, setProviderModelCatalog] = useState<ProviderModelCatalog | null>(null);
   const [imageModel, setImageModel] = useState(savedDraft.imageModel);
   const [videoModel, setVideoModel] = useState(savedDraft.videoModel);
   const [keyColor, setKeyColor] = useState(savedDraft.keyColor);
@@ -511,21 +528,29 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const assetHydrationVersionRef = useRef(0);
   const [referenceImageVersion, setReferenceImageVersion] = useState("");
 
+  const imageModels = useMemo(
+    () => providerModelCatalog ? toImageModelOptions(providerModelCatalog) : IMAGE_MODELS,
+    [providerModelCatalog]
+  );
+  const videoModels = useMemo(
+    () => providerModelCatalog ? toVideoModelOptions(providerModelCatalog) : VIDEO_MODELS,
+    [providerModelCatalog]
+  );
   const videoDurationOptions = useMemo(
-    () => getVideoDurationOptions(videoModel),
-    [videoModel]
+    () => getVideoDurationOptions(videoModels, videoModel),
+    [videoModels, videoModel]
   );
   const videoResolutionOptions = useMemo(
-    () => getVideoResolutionOptions(videoModel),
-    [videoModel]
+    () => getVideoResolutionOptions(videoModels, videoModel),
+    [videoModels, videoModel]
   );
   const imageGenerationSizeOptions = useMemo(
-    () => getImageGenerationSizeOptions(imageModel),
-    [imageModel]
+    () => getImageGenerationSizeOptions(imageModels, imageModel),
+    [imageModels, imageModel]
   );
   const directionImageGenerationSizeOptions = useMemo(
-    () => getImageGenerationSizeOptions(directionImageModel),
-    [directionImageModel]
+    () => getImageGenerationSizeOptions(imageModels, directionImageModel),
+    [directionImageModel, imageModels]
   );
   const builtInStyleReferencePreview = useMemo<MediaPreview>(() => ({
     name: "cel-anime-south-facing.png",
@@ -554,17 +579,17 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const oneClickProgress = oneClickJob?.progressPercent ?? 0;
 
   useEffect(() => {
-    setImageGenerationSize((currentSize) => normalizeImageGenerationSize(imageModel, currentSize));
-  }, [imageModel]);
+    setImageGenerationSize((currentSize) => normalizeImageGenerationSize(imageModels, imageModel, currentSize));
+  }, [imageModel, imageModels]);
 
   useEffect(() => {
-    setDirectionImageGenerationSize((currentSize) => normalizeImageGenerationSize(directionImageModel, currentSize));
-  }, [directionImageModel]);
+    setDirectionImageGenerationSize((currentSize) => normalizeImageGenerationSize(imageModels, directionImageModel, currentSize));
+  }, [directionImageModel, imageModels]);
 
   useEffect(() => {
-    setVideoDurationSeconds((currentDuration) => normalizeVideoDuration(videoModel, currentDuration));
-    setVideoResolution((currentResolution) => normalizeVideoResolution(videoModel, currentResolution));
-  }, [videoModel]);
+    setVideoDurationSeconds((currentDuration) => normalizeVideoDuration(videoModels, videoModel, currentDuration));
+    setVideoResolution((currentResolution) => normalizeVideoResolution(videoModels, videoModel, currentResolution));
+  }, [videoModel, videoModels]);
 
   useEffect(() => {
     setFinalImagePrompt(buildFirstFramePrompt({
@@ -621,6 +646,34 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       videoCustomPrompt: advancedJumpCustomPrompt
     }));
   }, [advancedJumpCustomPrompt, advancedJumpSystemPrompt]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    void getProviderModelCatalog()
+      .then((catalog) => {
+        if (isCancelled) {
+          return;
+        }
+        setProviderModelCatalog(catalog);
+        setImageModel((current) => catalog.imageModels.some((model) => model.id === current)
+          ? current
+          : catalog.defaults.imageModelId);
+        setDirectionImageModel((current) => catalog.imageModels.some((model) => model.id === current)
+          ? current
+          : catalog.defaults.imageModelId);
+        setVideoModel((current) => catalog.videoModels.some((model) => model.id === current)
+          ? current
+          : catalog.defaults.videoModelId);
+      })
+      .catch((error: unknown) => {
+        if (!isCancelled) {
+          setFirstFrameStatus(`Provider model catalog load failed: ${getErrorMessage(error)}`);
+        }
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -983,9 +1036,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     setIsStartingOneClick(true);
     setOneClickStatus("正在启动一键生成角色任务...");
     try {
-      if (openRouterApiKey.trim()) {
-        await saveOpenRouterKey(openRouterApiKey);
-      }
       await saveDraft();
       const referenceImageDataUrl = await readFileAsDataUrl(oneClickReferenceFile);
       const job = await createOneClickCharacterJob({
@@ -1006,7 +1056,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           jump: oneClickIncludeJump
         }
       }, {
-        openRouterApiKey,
         publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL
       });
       setOneClickJob(job);
@@ -1158,7 +1207,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         referenceImageDataUrl
       }, {
-        openRouterApiKey,
         publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
         characterId
       });
@@ -1205,7 +1253,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         characterTemplateImageDataUrl
       }, {
-        openRouterApiKey,
         publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
         characterId
       });
@@ -1280,7 +1327,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         durationSeconds: videoDurationSeconds,
         resolution: videoResolution
       }, {
-        openRouterApiKey
+        characterId
       });
       const jobId = extractJobId(response);
       if (!jobId) {
@@ -1298,7 +1345,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   };
 
   const pollVideoJob = async (jobId: string, characterId = activeCharacterId) => {
-    const result = await getVideoGenerationStatus(jobId, { openRouterApiKey, characterId });
+    const result = await getVideoGenerationStatus(jobId, { characterId });
     setVideoStatusDetails(formatVideoStatusDetails(result, jobId));
     if (result.status === "completed" && result.localVideoUrl) {
       const videoUrl = toAbsoluteApiUrl(result.localVideoUrl);
@@ -1445,8 +1492,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
 
   const handleChangeVideoModel = (nextModel: string) => {
     setVideoModel(nextModel);
-    setVideoDurationSeconds(getDefaultVideoDuration(nextModel));
-    setVideoResolution(getDefaultVideoResolution(nextModel));
+    setVideoDurationSeconds(getDefaultVideoDuration(videoModels, nextModel));
+    setVideoResolution(getDefaultVideoResolution(videoModels, nextModel));
   };
 
   const updateAdvancedAction = (actionKind: AdvancedActionKind, patch: Partial<AdvancedActionState>) => {
@@ -1492,7 +1539,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         characterTemplateImageDataUrl
       }, {
-        openRouterApiKey,
         publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
         characterId
       });
@@ -1586,7 +1632,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         startFrameImageDataUrl
       }, {
-        openRouterApiKey,
         publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
         characterId
       });
@@ -1653,7 +1698,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         durationSeconds: videoDurationSeconds,
         resolution: videoResolution
       }, {
-        openRouterApiKey
+        characterId,
+        actionKind
       });
       const jobId = extractJobId(response);
       if (!jobId) {
@@ -1674,7 +1720,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
 
   const pollAdvancedVideoJob = async (jobId: string, characterId: string, actionKind: AdvancedActionKind) => {
     const label = getAdvancedActionLabel(actionKind);
-    const result = await getVideoGenerationStatus(jobId, { openRouterApiKey, characterId, actionKind });
+    const result = await getVideoGenerationStatus(jobId, { characterId, actionKind });
     updateAdvancedAction(actionKind, {
       statusDetails: formatVideoStatusDetails(result, jobId)
     });
@@ -2059,20 +2105,13 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             <h1>高清2D角色制作</h1>
           </div>
           <div className="toolbar">
-            <label className="api-key-field">
-              OpenRouter 密钥
-              <input
-                aria-label="OpenRouter 密钥"
-                autoComplete="off"
-                placeholder="sk-or-v1-..."
-                type="password"
-                value={openRouterApiKey}
-                onChange={(event) => setOpenRouterApiKey(event.target.value)}
-              />
-            </label>
             <div className="fixed-url-field" aria-label="固定公网资源地址">
               <span>固定公网资源地址</span>
               <code>{FIXED_PUBLIC_ASSET_BASE_URL}</code>
+            </div>
+            <div className="fixed-url-field" aria-label="API provider settings">
+              <span>API providers</span>
+              <code>Global settings</code>
             </div>
           </div>
         </header>
@@ -2148,7 +2187,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <label className="field">
                       图像模型
                       <select aria-label="一键生成图像模型" value={imageModel} onChange={(event) => setImageModel(event.target.value)}>
-                        {IMAGE_MODELS.map((model) => (
+                        {imageModels.map((model) => (
                           <option key={model.id} value={model.id}>{model.label}</option>
                         ))}
                       </select>
@@ -2287,7 +2326,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <select aria-label="图像模型" value={imageModel} onChange={(event) => {
                       setImageModel(event.target.value);
                     }}>
-                      {IMAGE_MODELS.map((model) => (
+                      {imageModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
@@ -2469,7 +2508,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   <label className="field">
                     四方向图像模型
                     <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
-                      {IMAGE_MODELS.map((model) => (
+                      {imageModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
@@ -2485,7 +2524,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   <label className="field">
                     视频模型
                     <select aria-label="视频模型" value={videoModel} onChange={(event) => handleChangeVideoModel(event.target.value)}>
-                      {VIDEO_MODELS.map((model) => (
+                      {videoModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
@@ -2634,7 +2673,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   <label className="field">
                     四方向图像模型
                     <select aria-label="四方向图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
-                      {IMAGE_MODELS.map((model) => (
+                      {imageModels.map((model) => (
                         <option key={model.id} value={model.id}>{model.label}</option>
                       ))}
                     </select>
@@ -2719,6 +2758,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               videoResolution={videoResolution}
               videoDurationOptions={videoDurationOptions}
               videoResolutionOptions={videoResolutionOptions}
+              videoModels={videoModels}
+              imageModels={imageModels}
               imageModel={directionImageModel}
               imageGenerationSize={directionImageGenerationSize}
               imageGenerationSizeOptions={directionImageGenerationSizeOptions}
@@ -2760,6 +2801,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               videoResolution={videoResolution}
               videoDurationOptions={videoDurationOptions}
               videoResolutionOptions={videoResolutionOptions}
+              videoModels={videoModels}
+              imageModels={imageModels}
               imageModel={directionImageModel}
               imageGenerationSize={directionImageGenerationSize}
               imageGenerationSizeOptions={directionImageGenerationSizeOptions}
@@ -2804,6 +2847,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               videoResolution={videoResolution}
               videoDurationOptions={videoDurationOptions}
               videoResolutionOptions={videoResolutionOptions}
+              videoModels={videoModels}
+              imageModels={imageModels}
               imageModel={directionImageModel}
               imageGenerationSize={directionImageGenerationSize}
               imageGenerationSizeOptions={directionImageGenerationSizeOptions}
@@ -2983,6 +3028,8 @@ function AdvancedActionStage({
   videoResolution,
   videoDurationOptions,
   videoResolutionOptions,
+  videoModels,
+  imageModels,
   imageModel,
   imageGenerationSize,
   imageGenerationSizeOptions,
@@ -3032,6 +3079,8 @@ function AdvancedActionStage({
   videoResolution: string;
   videoDurationOptions: readonly number[];
   videoResolutionOptions: readonly string[];
+  videoModels: readonly VideoModelOption[];
+  imageModels: readonly ImageModelOption[];
   imageModel: string;
   imageGenerationSize: number;
   imageGenerationSizeOptions: readonly ImageGenerationSizeOption[];
@@ -3133,7 +3182,7 @@ function AdvancedActionStage({
             <label className="field">
               视频模型
               <select aria-label={`${title}视频模型`} value={videoModel} onChange={(event) => onChangeVideoModel(event.target.value)}>
-                {VIDEO_MODELS.map((model) => (
+                {videoModels.map((model) => (
                   <option key={model.id} value={model.id}>{model.label}</option>
                 ))}
               </select>
@@ -3176,7 +3225,7 @@ function AdvancedActionStage({
                 <label className="field">
                   中间帧图像模型
                   <select aria-label="攻击中间帧图像模型" value={imageModel} onChange={(event) => onChangeImageModel(event.target.value)}>
-                    {IMAGE_MODELS.map((model) => (
+                    {imageModels.map((model) => (
                       <option key={model.id} value={model.id}>{model.label}</option>
                     ))}
                   </select>
@@ -4134,59 +4183,165 @@ function isKnownVideoModel(model: string): boolean {
   return VIDEO_MODELS.some((item) => item.id === model);
 }
 
-function getImageGenerationSizeOptions(model: string): readonly ImageGenerationSizeOption[] {
-  return (IMAGE_MODELS.find((item) => item.id === model) ?? IMAGE_MODELS[0]).sizeOptions;
+function toImageModelOptions(catalog: ProviderModelCatalog): ImageModelOption[] {
+  return catalog.imageModels.map((model) => ({
+    id: model.id,
+    label: model.label,
+    sizeOptions: model.imageSizeOptions && model.imageSizeOptions.length > 0
+      ? model.imageSizeOptions
+      : [{ size: model.defaultImageSize ?? 1024, label: `${model.defaultImageSize ?? 1024} x ${model.defaultImageSize ?? 1024}` }]
+  }));
 }
 
-function getDefaultImageGenerationSize(model: string): number {
-  return getImageGenerationSizeOptions(model)[0]?.size ?? 1024;
+function toVideoModelOptions(catalog: ProviderModelCatalog): VideoModelOption[] {
+  return catalog.videoModels.map((model) => {
+    const durationOptions = model.durationOptions && model.durationOptions.length > 0
+      ? model.durationOptions
+      : [model.defaultDurationSeconds ?? 4];
+    const resolutionOptions = model.resolutionOptions && model.resolutionOptions.length > 0
+      ? model.resolutionOptions
+      : [model.defaultResolution ?? "720p"];
+    return {
+      id: model.id,
+      label: model.label,
+      durationOptions,
+      defaultDurationSeconds: model.defaultDurationSeconds ?? durationOptions[0] ?? 4,
+      resolutionOptions,
+      defaultResolution: model.defaultResolution ?? resolutionOptions[0] ?? "720p"
+    };
+  });
 }
 
-function normalizeImageGenerationSize(model: string, size: number): number {
-  const options = getImageGenerationSizeOptions(model);
+function getImageGenerationSizeOptions(model: string): readonly ImageGenerationSizeOption[];
+function getImageGenerationSizeOptions(models: readonly ImageModelOption[], model: string): readonly ImageGenerationSizeOption[];
+function getImageGenerationSizeOptions(
+  modelOrModels: string | readonly ImageModelOption[],
+  modelId?: string
+): readonly ImageGenerationSizeOption[] {
+  const models = typeof modelOrModels === "string" ? IMAGE_MODELS : modelOrModels;
+  const model = typeof modelOrModels === "string" ? modelOrModels : modelId ?? "";
+  return (models.find((item) => item.id === model) ?? models[0] ?? IMAGE_MODELS[0])?.sizeOptions ?? [
+    { size: 1024, label: "1024 x 1024" }
+  ];
+}
+
+function getDefaultImageGenerationSize(model: string): number;
+function getDefaultImageGenerationSize(models: readonly ImageModelOption[], model: string): number;
+function getDefaultImageGenerationSize(modelOrModels: string | readonly ImageModelOption[], modelId?: string): number {
+  return typeof modelOrModels === "string"
+    ? getImageGenerationSizeOptions(modelOrModels)[0]?.size ?? 1024
+    : getImageGenerationSizeOptions(modelOrModels, modelId ?? "")[0]?.size ?? 1024;
+}
+
+function normalizeImageGenerationSize(model: string, size: number): number;
+function normalizeImageGenerationSize(models: readonly ImageModelOption[], model: string, size: number): number;
+function normalizeImageGenerationSize(
+  modelOrModels: string | readonly ImageModelOption[],
+  modelOrSize: string | number,
+  maybeSize?: number
+): number {
+  const model = typeof modelOrModels === "string" ? modelOrModels : String(modelOrSize);
+  const size = typeof modelOrModels === "string" ? Number(modelOrSize) : Number(maybeSize);
+  const options = typeof modelOrModels === "string"
+    ? getImageGenerationSizeOptions(model)
+    : getImageGenerationSizeOptions(modelOrModels, model);
   return options.some((option) => option.size === size)
     ? size
-    : getDefaultImageGenerationSize(model);
+    : typeof modelOrModels === "string"
+      ? getDefaultImageGenerationSize(model)
+      : getDefaultImageGenerationSize(modelOrModels, model);
 }
 
-function getVideoModelOption(model: string): VideoModelOption {
-  const option = VIDEO_MODELS.find((item) => item.id === model)
-    ?? VIDEO_MODELS.find((item) => item.id === DEFAULT_VIDEO_MODEL)
-    ?? VIDEO_MODELS[0];
+function getVideoModelOption(model: string): VideoModelOption;
+function getVideoModelOption(models: readonly VideoModelOption[], model: string): VideoModelOption;
+function getVideoModelOption(
+  modelOrModels: string | readonly VideoModelOption[],
+  modelId?: string
+): VideoModelOption {
+  const models = typeof modelOrModels === "string" ? VIDEO_MODELS : modelOrModels;
+  const model = typeof modelOrModels === "string" ? modelOrModels : modelId ?? "";
+  const fallbackDefault = typeof modelOrModels === "string" ? DEFAULT_VIDEO_MODEL : modelOrModels[0]?.id ?? DEFAULT_VIDEO_MODEL;
+  const option = models.find((item) => item.id === model)
+    ?? models.find((item) => item.id === fallbackDefault)
+    ?? models[0];
   if (!option) {
     throw new Error("至少需要配置一个视频模型");
   }
   return option;
 }
 
-function getVideoDurationOptions(model: string): readonly number[] {
-  return getVideoModelOption(model).durationOptions;
+function getVideoDurationOptions(model: string): readonly number[];
+function getVideoDurationOptions(models: readonly VideoModelOption[], model: string): readonly number[];
+function getVideoDurationOptions(modelOrModels: string | readonly VideoModelOption[], modelId?: string): readonly number[] {
+  return typeof modelOrModels === "string"
+    ? getVideoModelOption(modelOrModels).durationOptions
+    : getVideoModelOption(modelOrModels, modelId ?? "").durationOptions;
 }
 
-function getDefaultVideoDuration(model: string): number {
-  return getVideoModelOption(model).defaultDurationSeconds;
+function getDefaultVideoDuration(model: string): number;
+function getDefaultVideoDuration(models: readonly VideoModelOption[], model: string): number;
+function getDefaultVideoDuration(modelOrModels: string | readonly VideoModelOption[], modelId?: string): number {
+  return typeof modelOrModels === "string"
+    ? getVideoModelOption(modelOrModels).defaultDurationSeconds
+    : getVideoModelOption(modelOrModels, modelId ?? "").defaultDurationSeconds;
 }
 
-function normalizeVideoDuration(model: string, duration: number): number {
-  const options = getVideoDurationOptions(model);
-  return options.includes(duration) ? duration : getDefaultVideoDuration(model);
+function normalizeVideoDuration(model: string, duration: number): number;
+function normalizeVideoDuration(models: readonly VideoModelOption[], model: string, duration: number): number;
+function normalizeVideoDuration(
+  modelOrModels: string | readonly VideoModelOption[],
+  modelOrDuration: string | number,
+  maybeDuration?: number
+): number {
+  const model = typeof modelOrModels === "string" ? modelOrModels : String(modelOrDuration);
+  const duration = typeof modelOrModels === "string" ? Number(modelOrDuration) : Number(maybeDuration);
+  const options = typeof modelOrModels === "string"
+    ? getVideoDurationOptions(model)
+    : getVideoDurationOptions(modelOrModels, model);
+  return options.includes(duration)
+    ? duration
+    : typeof modelOrModels === "string"
+      ? getDefaultVideoDuration(model)
+      : getDefaultVideoDuration(modelOrModels, model);
 }
 
 function normalizeGodotExportSize(size: number): GodotExportSize {
   return GODOT_EXPORT_SIZE_OPTIONS.includes(size as GodotExportSize) ? size as GodotExportSize : 512;
 }
 
-function getVideoResolutionOptions(model: string): readonly string[] {
-  return getVideoModelOption(model).resolutionOptions;
+function getVideoResolutionOptions(model: string): readonly string[];
+function getVideoResolutionOptions(models: readonly VideoModelOption[], model: string): readonly string[];
+function getVideoResolutionOptions(modelOrModels: string | readonly VideoModelOption[], modelId?: string): readonly string[] {
+  return typeof modelOrModels === "string"
+    ? getVideoModelOption(modelOrModels).resolutionOptions
+    : getVideoModelOption(modelOrModels, modelId ?? "").resolutionOptions;
 }
 
-function getDefaultVideoResolution(model: string): string {
-  return getVideoModelOption(model).defaultResolution;
+function getDefaultVideoResolution(model: string): string;
+function getDefaultVideoResolution(models: readonly VideoModelOption[], model: string): string;
+function getDefaultVideoResolution(modelOrModels: string | readonly VideoModelOption[], modelId?: string): string {
+  return typeof modelOrModels === "string"
+    ? getVideoModelOption(modelOrModels).defaultResolution
+    : getVideoModelOption(modelOrModels, modelId ?? "").defaultResolution;
 }
 
-function normalizeVideoResolution(model: string, resolution: string): string {
-  const options = getVideoResolutionOptions(model);
-  return options.includes(resolution) ? resolution : getDefaultVideoResolution(model);
+function normalizeVideoResolution(model: string, resolution: string): string;
+function normalizeVideoResolution(models: readonly VideoModelOption[], model: string, resolution: string): string;
+function normalizeVideoResolution(
+  modelOrModels: string | readonly VideoModelOption[],
+  modelOrResolution: string,
+  maybeResolution?: string
+): string {
+  const model = typeof modelOrModels === "string" ? modelOrModels : modelOrResolution;
+  const resolution = typeof modelOrModels === "string" ? modelOrResolution : maybeResolution ?? "";
+  const options = typeof modelOrModels === "string"
+    ? getVideoResolutionOptions(model)
+    : getVideoResolutionOptions(modelOrModels, model);
+  return options.includes(resolution)
+    ? resolution
+    : typeof modelOrModels === "string"
+      ? getDefaultVideoResolution(model)
+      : getDefaultVideoResolution(modelOrModels, model);
 }
 
 function buildCharacterPreviewAssets(result: ProcessFourDirectionResult | null, advancedActions?: {

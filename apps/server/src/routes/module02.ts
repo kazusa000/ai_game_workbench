@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
@@ -10,8 +11,20 @@ import {
   OpenRouterClient,
   OpenRouterError
 } from "../providers/openRouter";
+import {
+  buildOpenAiImagesGenerationPayload,
+  OpenAiImagesClient,
+  OpenAiImagesError
+} from "../providers/openAiImages";
+import {
+  generateLocalCodexImage,
+  isLocalCodexImageModel,
+  type LocalCodexImageGenerationInput,
+  type LocalCodexImageGenerationResult
+} from "../providers/localCodex";
 import type { AppConfig } from "../config";
 import { resolvePublicServerBaseUrl } from "./assets";
+import { resolveGenerationProviderModel } from "../providerSettings";
 import {
   createPixelCharacterFolder,
   deletePixelCharacterFolder,
@@ -27,7 +40,7 @@ import {
   type SlicedSpriteFrame
 } from "../processing/imageProcessing";
 
-type Module02RouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir">;
+type Module02RouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir" | "localCodexImageGenerator">;
 type PixelAssetKind = "character-reference" | "base-template" | "walk-template";
 type PixelSliceKind = "idle" | "walk";
 
@@ -146,21 +159,58 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
   });
 
   app.post("/api/module02/generation/sprite-sheet", async (request, reply) => {
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
+    const requestBody = request.body as SpriteSheetGenerationRequest;
+    const resolvedModel = await resolveGenerationProviderModel(config, requestBody.model, "image");
+    if ("error" in resolvedModel) {
+      return reply.code(resolvedModel.statusCode).send({ error: resolvedModel.error });
     }
     const publicRoot = resolvePublicServerBaseUrl(request.headers["x-public-asset-base-url"], config);
     if ("error" in publicRoot) {
       return reply.code(400).send({ error: publicRoot.error });
     }
-    const payloadResult = await buildSpriteSheetRoutePayload(request.body as SpriteSheetGenerationRequest, config);
+    const payloadResult = await buildSpriteSheetRoutePayload({
+      ...requestBody,
+      model: resolvedModel.model.upstreamModel
+    }, config);
     if ("error" in payloadResult) {
       return reply.code(400).send({ error: payloadResult.error });
     }
-    const client = new OpenRouterClient({ apiKey });
+    if (resolvedModel.provider.kind === "local-codex" || isLocalCodexImageModel(resolvedModel.model.upstreamModel)) {
+      try {
+        const localResult = await runLocalCodexSpriteSheetGeneration({
+          model: resolvedModel.model.upstreamModel,
+          prompt: payloadResult.finalPrompt,
+          imageDataUrls: payloadResult.imageDataUrls
+        }, config);
+        return await storeGeneratedSpriteSheet(
+          localCodexResultToProviderResponse(localResult),
+          config,
+          publicRoot.publicBase,
+          undefined,
+          {
+            actionId: payloadResult.action.id,
+            actionName: payloadResult.action.name,
+            finalPrompt: payloadResult.finalPrompt,
+            pixelCharacterId: readPixelCharacterId(request.body) ?? readPixelCharacterId(request.headers)
+          }
+        );
+      } catch (error: unknown) {
+        return sendGenerationError(error, reply);
+      }
+    }
+    const apiKey = resolvedModel.apiKey ?? "";
     try {
-      const providerResponse = await client.createImage(payloadResult.payload);
+      const providerResponse = resolvedModel.provider.kind === "openai-images"
+        ? await new OpenAiImagesClient({ apiKey, baseUrl: resolvedModel.baseUrl ?? "" })
+          .createImage(buildOpenAiImagesGenerationPayload({
+            model: resolvedModel.model.upstreamModel,
+            prompt: payloadResult.finalPrompt,
+            targetSize: resolvedModel.model.defaultImageSize ?? 1024,
+            imageDataUrls: payloadResult.imageDataUrls,
+            seed: requestBody.seed
+          }))
+        : await new OpenRouterClient({ apiKey, baseUrl: resolvedModel.baseUrl })
+          .createImage(payloadResult.payload);
       return await storeGeneratedSpriteSheet(providerResponse, config, publicRoot.publicBase, apiKey, {
         actionId: payloadResult.action.id,
         actionName: payloadResult.action.name,
@@ -338,9 +388,6 @@ async function buildSpriteSheetRoutePayload(
     return { error: `Unknown pixel sprite action: ${actionId}` };
   }
   const model = input.model?.trim() || "google/gemini-3.1-flash-image-preview";
-  if (model !== "google/gemini-3.1-flash-image-preview") {
-    return { error: "像素角色生成器目前只支持 Nano Banana 2。" };
-  }
   const characterReferenceResult = await resolveCharacterReferenceImage(input, config);
   if ("error" in characterReferenceResult) {
     return { error: characterReferenceResult.error };
@@ -360,6 +407,10 @@ async function buildSpriteSheetRoutePayload(
   return {
     action,
     finalPrompt,
+    imageDataUrls: [
+      actionReferenceImageResult.dataUrl,
+      characterReferenceResult.dataUrl
+    ],
     payload: buildSpriteSheetGenerationPayload({
       model,
       prompt: finalPrompt,
@@ -433,11 +484,50 @@ async function readActionReferenceImage(referenceImage: string): Promise<{ dataU
   };
 }
 
+async function runLocalCodexSpriteSheetGeneration(
+  input: {
+    model: string;
+    prompt: string;
+    imageDataUrls: readonly string[];
+  },
+  config: Module02RouteConfig
+): Promise<LocalCodexImageGenerationResult> {
+  const tempDir = await mkdtemp(join(tmpdir(), "ai-game-workbench-module02-local-codex-input-"));
+  try {
+    const imagePaths = [];
+    for (const [index, dataUrl] of input.imageDataUrls.entries()) {
+      const image = parseDataUrlImage(dataUrl);
+      const filePath = join(tempDir, `input-${index}.${image.extension}`);
+      await writeFile(filePath, image.buffer);
+      imagePaths.push(filePath);
+    }
+    const generator = config.localCodexImageGenerator ?? generateLocalCodexImage;
+    const generationInput: LocalCodexImageGenerationInput = {
+      model: input.model,
+      prompt: input.prompt,
+      targetSize: 1024,
+      keyColor: "#00ff00",
+      imagePaths,
+      workingDirectory: process.cwd()
+    };
+    return await generator(generationInput);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function localCodexResultToProviderResponse(result: LocalCodexImageGenerationResult): Record<string, unknown> {
+  return {
+    ...result.providerResponse,
+    imageUrl: `data:image/${result.extension};base64,${result.buffer.toString("base64")}`
+  };
+}
+
 async function storeGeneratedSpriteSheet(
   providerResponse: unknown,
   config: Pick<AppConfig, "storageDir">,
   publicRoot: string,
-  apiKey: string,
+  apiKey: string | undefined,
   options: {
     actionId: string;
     actionName: string;
@@ -620,20 +710,6 @@ function resolveConstraintPrompt(inputPrompt: unknown, fallbackPrompt: string): 
   return typeof inputPrompt === "string" ? inputPrompt : fallbackPrompt;
 }
 
-function resolveOpenRouterApiKey(
-  request: { headers: Record<string, string | string[] | undefined> },
-  config: Pick<AppConfig, "openRouterApiKey">
-): string | undefined {
-  const headerValue = request.headers["x-openrouter-api-key"];
-  const requestKey = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-  const trimmedRequestKey = requestKey?.trim();
-  if (trimmedRequestKey) {
-    return trimmedRequestKey;
-  }
-  const configKey = config.openRouterApiKey?.trim();
-  return configKey || undefined;
-}
-
 function readPixelCharacterId(input: unknown): string | undefined {
   if (!input || typeof input !== "object") {
     return undefined;
@@ -719,7 +795,7 @@ function findStringValue(value: unknown, keys: readonly string[]): string | unde
   return undefined;
 }
 
-async function resolveImageBuffer(source: string, apiKey: string): Promise<{ buffer: Buffer; extension: "png" | "jpg" | "webp" }> {
+async function resolveImageBuffer(source: string, apiKey?: string): Promise<{ buffer: Buffer; extension: "png" | "jpg" | "webp" }> {
   if (source.startsWith("data:")) {
     return parseDataUrlImage(source);
   }
@@ -753,10 +829,10 @@ function parseDataUrlImage(source: string): { buffer: Buffer; extension: "png" |
   };
 }
 
-function buildImageDownloadHeaders(url: string, apiKey: string): HeadersInit | undefined {
+function buildImageDownloadHeaders(url: string, apiKey?: string): HeadersInit | undefined {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === "openrouter.ai" || parsed.hostname.endsWith(".openrouter.ai")) {
+    if (apiKey && (parsed.hostname === "openrouter.ai" || parsed.hostname.endsWith(".openrouter.ai"))) {
       return {
         Authorization: `Bearer ${apiKey}`
       };
@@ -834,6 +910,12 @@ function contentTypeFromFileName(fileName: string): string {
 
 function sendGenerationError(error: unknown, reply: { code: (statusCode: number) => { send: (body: unknown) => unknown } }) {
   if (error instanceof OpenRouterError) {
+    return reply.code(error.statusCode).send({
+      error: error.message,
+      providerStatus: error.statusCode
+    });
+  }
+  if (error instanceof OpenAiImagesError) {
     return reply.code(error.statusCode).send({
       error: error.message,
       providerStatus: error.statusCode

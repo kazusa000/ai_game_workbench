@@ -12,6 +12,11 @@ import {
   OpenRouterClient
 } from "../providers/openRouter";
 import {
+  buildOpenAiImagesGenerationPayload,
+  OpenAiImagesClient,
+  OpenAiImagesError
+} from "../providers/openAiImages";
+import {
   generateLocalCodexImage,
   isLocalCodexImageModel,
   type LocalCodexImageGenerationInput,
@@ -30,6 +35,10 @@ import {
   readModule01ReferenceImageBuffer,
   resolveModule01ReferenceImagePath
 } from "../referenceImages";
+import {
+  resolveGenerationProviderModel,
+  resolveOpenRouterVideoProvider
+} from "../providerSettings";
 
 const BUILT_IN_STYLE_REFERENCE_CONTENT_TYPE = "image/png";
 
@@ -104,9 +113,17 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     if ("error" in publicBaseResult) {
       return reply.code(400).send({ error: publicBaseResult.error });
     }
-    if (isLocalCodexImageModel(requestBody.model)) {
+    const resolvedModel = await resolveGenerationProviderModel(config, requestBody.model, "image");
+    if ("error" in resolvedModel) {
+      return reply.code(resolvedModel.statusCode).send({ error: resolvedModel.error });
+    }
+    const resolvedRequestBody = {
+      ...requestBody,
+      model: resolvedModel.model.upstreamModel
+    };
+    if (resolvedModel.provider.kind === "local-codex" || isLocalCodexImageModel(resolvedRequestBody.model)) {
       try {
-        const localResult = await runLocalCodexFirstFrameGeneration(requestBody, config);
+        const localResult = await runLocalCodexFirstFrameGeneration(resolvedRequestBody, config);
         return await storeGeneratedFirstFrame(
           localCodexResultToProviderResponse(localResult),
           config,
@@ -121,16 +138,14 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
         return sendGenerationError(error, reply);
       }
     }
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
-    }
-    const client = new OpenRouterClient({ apiKey });
+    const apiKey = resolvedModel.apiKey ?? "";
     try {
-      const input = await withBuiltInStyleReference(requestBody, config);
-      const providerResponse = await client.createImage(
-        buildImageGenerationPayload(input)
-      );
+      const input = await withBuiltInStyleReference(resolvedRequestBody, config);
+      const providerResponse = resolvedModel.provider.kind === "openai-images"
+        ? await new OpenAiImagesClient({ apiKey, baseUrl: resolvedModel.baseUrl ?? "" })
+          .createImage(buildOpenAiImagesGenerationPayload(input))
+        : await new OpenRouterClient({ apiKey, baseUrl: resolvedModel.baseUrl })
+          .createImage(buildImageGenerationPayload(input));
       return await storeGeneratedFirstFrame(providerResponse, config, publicBaseResult.publicBase, {
         apiKey,
         characterId: readCharacterId(request.body) ?? readCharacterId(request.headers),
@@ -148,15 +163,23 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     if ("error" in publicBaseResult) {
       return reply.code(400).send({ error: publicBaseResult.error });
     }
-    const input = await buildDirectionTemplatePayloadInput(requestBody, config);
+    const resolvedModel = await resolveGenerationProviderModel(config, requestBody.model, "image");
+    if ("error" in resolvedModel) {
+      return reply.code(resolvedModel.statusCode).send({ error: resolvedModel.error });
+    }
+    const resolvedRequestBody = {
+      ...requestBody,
+      model: resolvedModel.model.upstreamModel
+    };
+    const input = await buildDirectionTemplatePayloadInput(resolvedRequestBody, config);
     if ("error" in input) {
       return reply.code(400).send({ error: input.error });
     }
-    if (isLocalCodexImageModel(requestBody.model)) {
+    if (resolvedModel.provider.kind === "local-codex" || isLocalCodexImageModel(resolvedRequestBody.model)) {
       try {
         const templateKind = requestBody.templateKind as DirectionTemplateKind;
         const characterId = readCharacterId(request.body) ?? readCharacterId(request.headers);
-        const localResult = await runLocalCodexDirectionTemplateGeneration(requestBody, config);
+        const localResult = await runLocalCodexDirectionTemplateGeneration(resolvedRequestBody, config);
         const result = await storeGeneratedFirstFrame(
           localCodexResultToProviderResponse(localResult),
           config,
@@ -176,15 +199,15 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
         return sendGenerationError(error, reply);
       }
     }
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
-    }
-    const client = new OpenRouterClient({ apiKey });
+    const apiKey = resolvedModel.apiKey ?? "";
     try {
       const templateKind = requestBody.templateKind as DirectionTemplateKind;
       const characterId = readCharacterId(request.body) ?? readCharacterId(request.headers);
-      const providerResponse = await client.createImage(buildImageGenerationPayload(input));
+      const providerResponse = resolvedModel.provider.kind === "openai-images"
+        ? await new OpenAiImagesClient({ apiKey, baseUrl: resolvedModel.baseUrl ?? "" })
+          .createImage(buildOpenAiImagesGenerationPayload(input))
+        : await new OpenRouterClient({ apiKey, baseUrl: resolvedModel.baseUrl })
+          .createImage(buildImageGenerationPayload(input));
       const result = await storeGeneratedFirstFrame(
         providerResponse,
         config,
@@ -220,9 +243,17 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     if (!characterId) {
       return reply.code(400).send({ error: "characterId is required" });
     }
-    if (isLocalCodexImageModel(requestBody.model)) {
+    const resolvedModel = await resolveGenerationProviderModel(config, requestBody.model, "image");
+    if ("error" in resolvedModel) {
+      return reply.code(resolvedModel.statusCode).send({ error: resolvedModel.error });
+    }
+    const resolvedRequestBody = {
+      ...requestBody,
+      model: resolvedModel.model.upstreamModel
+    };
+    if (resolvedModel.provider.kind === "local-codex" || isLocalCodexImageModel(resolvedRequestBody.model)) {
       try {
-        const localResult = await runLocalCodexAdvancedActionMidframeGeneration(requestBody, config);
+        const localResult = await runLocalCodexAdvancedActionMidframeGeneration(resolvedRequestBody, config);
         return await storeGeneratedFirstFrame(
           localCodexResultToProviderResponse(localResult),
           config,
@@ -238,13 +269,19 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
         return sendGenerationError(error, reply);
       }
     }
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
-    }
-    const client = new OpenRouterClient({ apiKey });
+    const apiKey = resolvedModel.apiKey ?? "";
     try {
-      const providerResponse = await client.createImage(buildImageGenerationPayload(input));
+      const providerResponse = resolvedModel.provider.kind === "openai-images"
+        ? await new OpenAiImagesClient({ apiKey, baseUrl: resolvedModel.baseUrl ?? "" })
+          .createImage(buildOpenAiImagesGenerationPayload({
+            ...input,
+            model: resolvedRequestBody.model
+          }))
+        : await new OpenRouterClient({ apiKey, baseUrl: resolvedModel.baseUrl })
+          .createImage(buildImageGenerationPayload({
+            ...input,
+            model: resolvedRequestBody.model
+          }));
       return await storeGeneratedFirstFrame(
         providerResponse,
         config,
@@ -263,11 +300,15 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
   });
 
   app.post("/api/generation/video", async (request, reply) => {
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
-    }
     const input = request.body as Parameters<typeof buildVideoGenerationPayload>[0];
+    const resolvedModel = await resolveGenerationProviderModel(config, input.model, "video");
+    if ("error" in resolvedModel) {
+      return reply.code(resolvedModel.statusCode).send({ error: resolvedModel.error });
+    }
+    if (resolvedModel.provider.kind !== "openrouter") {
+      return reply.code(400).send({ error: "Only OpenRouter video models are supported" });
+    }
+    const apiKey = resolvedModel.apiKey ?? "";
     const urlError = validatePublicHttpsImageUrl(input.firstFrameUrl);
     if (urlError) {
       return reply.code(400).send({ error: urlError });
@@ -290,28 +331,31 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
         return reply.code(400).send({ error: `参考图无法访问：${referenceAccessError}` });
       }
     }
-    const client = new OpenRouterClient({ apiKey });
+    const client = new OpenRouterClient({ apiKey, baseUrl: resolvedModel.baseUrl });
     try {
-      return await client.createVideo(buildVideoGenerationPayload(input));
+      return await client.createVideo(buildVideoGenerationPayload({
+        ...input,
+        model: resolvedModel.model.upstreamModel
+      }));
     } catch (error: unknown) {
       return sendGenerationError(error, reply);
     }
   });
 
   app.get("/api/generation/video/:jobId", async (request, reply) => {
-    const apiKey = resolveOpenRouterApiKey(request, config);
-    if (!apiKey) {
-      return reply.code(400).send({ error: "OPENROUTER_API_KEY is not configured" });
+    const provider = await resolveOpenRouterVideoProvider(config);
+    if ("error" in provider) {
+      return reply.code(provider.statusCode).send({ error: provider.error });
     }
     const { jobId } = request.params as { jobId: string };
     const jobIdError = validateJobId(jobId);
     if (jobIdError) {
       return reply.code(400).send({ error: jobIdError });
     }
-    const client = new OpenRouterClient({ apiKey });
+    const client = new OpenRouterClient({ apiKey: provider.apiKey, baseUrl: provider.baseUrl });
     try {
       const providerResponse = await client.getVideoJob(jobId);
-      return await storeVideoJobStatus(jobId, providerResponse, config, apiKey, {
+      return await storeVideoJobStatus(jobId, providerResponse, config, provider.apiKey, {
         characterId: readCharacterId(request.query) ?? readCharacterId(request.headers),
         actionKind: readActionKind(request.query) ?? readActionKind(request.headers)
       });
@@ -711,20 +755,6 @@ function decodeCharacterHeaderValue(value: string): string {
   }
 }
 
-function resolveOpenRouterApiKey(
-  request: { headers: Record<string, string | string[] | undefined> },
-  config: AppConfig
-): string | undefined {
-  const headerValue = request.headers["x-openrouter-api-key"];
-  const requestKey = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-  const trimmedRequestKey = requestKey?.trim();
-  if (trimmedRequestKey) {
-    return trimmedRequestKey;
-  }
-  const configKey = config.openRouterApiKey?.trim();
-  return configKey || undefined;
-}
-
 function validatePublicHttpsImageUrl(value: unknown): string | undefined {
   if (typeof value !== "string" || value.trim().length === 0) {
     return "OpenRouter 视频首帧需要公网 HTTPS 图片 URL。";
@@ -986,6 +1016,12 @@ function isLocalOrPrivateHost(hostname: string): boolean {
 
 function sendGenerationError(error: unknown, reply: { code: (statusCode: number) => { send: (body: unknown) => unknown } }) {
   if (error instanceof OpenRouterError) {
+    return reply.code(error.statusCode).send({
+      error: error.message,
+      providerStatus: error.statusCode
+    });
+  }
+  if (error instanceof OpenAiImagesError) {
     return reply.code(error.statusCode).send({
       error: error.message,
       providerStatus: error.statusCode

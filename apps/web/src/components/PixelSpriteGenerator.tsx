@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import type { ProviderModelCatalog } from "@ai-game-workbench/core";
 import {
   ArrowLeft,
   Gamepad2,
@@ -15,6 +16,7 @@ import {
   createPixelCharacter,
   createSpriteSheetGeneration,
   deletePixelCharacter,
+  getProviderModelCatalog,
   getPixelCharacterAssets,
   getPixelSpriteActions,
   listPixelCharacters,
@@ -38,7 +40,7 @@ interface PixelSpriteGeneratorProps {
 }
 
 interface PixelSpriteDraft {
-  openRouterApiKey: string;
+  imageModel: string;
   publicAssetBaseUrl: string;
   keyColor: string;
   basePrompt: string;
@@ -57,8 +59,9 @@ interface MediaPreview {
 }
 
 const ACTIVE_CHARACTER_STORAGE_KEY = "ai-game-workbench.pixel-sprite-generator.active-character";
-const DRAFT_STORAGE_KEY = "ai-game-workbench.pixel-sprite-generator.workflow.v2";
-const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
+const DRAFT_STORAGE_KEY = "ai-game-workbench.pixel-sprite-generator.workflow.v3";
+const LEGACY_DRAFT_STORAGE_KEY = "ai-game-workbench.pixel-sprite-generator.workflow.v2";
+const DEFAULT_IMAGE_MODEL = "apimart/gpt-image-2";
 const DEFAULT_KEY_COLOR = "#00ff00";
 
 const PAGE_LABELS: Record<PixelPage, string> = {
@@ -69,7 +72,7 @@ const PAGE_LABELS: Record<PixelPage, string> = {
 };
 
 const DEFAULT_DRAFT: PixelSpriteDraft = {
-  openRouterApiKey: "",
+  imageModel: DEFAULT_IMAGE_MODEL,
   publicAssetBaseUrl: "",
   keyColor: DEFAULT_KEY_COLOR,
   basePrompt: "生成一个 2x2 接触表格式像素角色基准模板，保持纯色背景，角色居中，四方向一致。",
@@ -119,6 +122,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
   const [assets, setAssets] = useState<PixelCharacterAssets>(() => createEmptyPixelAssets());
   const [actions, setActions] = useState<PixelSpriteActionTemplate[]>([]);
   const [draft, setDraft] = useState<PixelSpriteDraft>(() => loadDraft());
+  const [providerModelCatalog, setProviderModelCatalog] = useState<ProviderModelCatalog | null>(null);
   const [baseStatus, setBaseStatus] = useState("选择或创建像素角色后，上传参考图并生成基准模板。");
   const [walkStatus, setWalkStatus] = useState("先生成角色基准模板，再生成四方向步行图。");
   const [sliceStatus, setSliceStatus] = useState("切帧会写入当前像素角色的 slices/idle 与 slices/walk。");
@@ -134,6 +138,10 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
 
   const idleAction = useMemo(() => actions.find((action) => action.id === "idle") ?? FALLBACK_ACTIONS.idle, [actions]);
   const walkAction = useMemo(() => actions.find((action) => action.id === "walk") ?? FALLBACK_ACTIONS.walk, [actions]);
+  const imageModels = useMemo(
+    () => providerModelCatalog?.imageModels ?? [{ id: DEFAULT_IMAGE_MODEL, label: "Nano Banana 2" }],
+    [providerModelCatalog]
+  );
   const idleFrames = assets.slices.idle.frames;
   const walkFrames = assets.slices.walk.frames;
   const groupedIdleFrames = useMemo(() => groupFramesByRow(idleFrames), [idleFrames]);
@@ -142,6 +150,28 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     ? groupedWalkFrames.get(directionToRow(activeDirection)) ?? []
     : groupedIdleFrames.get(directionToRow(activeDirection)) ?? [];
   const activePreviewFrame = activePreviewFrames[previewFrameIndex % Math.max(1, activePreviewFrames.length)];
+
+  useEffect(() => {
+    let cancelled = false;
+    void getProviderModelCatalog()
+      .then((catalog) => {
+        if (cancelled) {
+          return;
+        }
+        setProviderModelCatalog(catalog);
+        setDraft((current) => catalog.imageModels.some((model) => model.id === current.imageModel)
+          ? current
+          : { ...current, imageModel: catalog.defaults.imageModelId });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setBaseStatus(`Provider model catalog load failed: ${getErrorMessage(error)}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,14 +357,13 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     try {
       const result = await createSpriteSheetGeneration({
         actionId: "idle",
-        model: DEFAULT_IMAGE_MODEL,
+        model: draft.imageModel,
         constraintPrompt: idleAction.constraintPrompt,
         customPrompt: draft.basePrompt,
         keyColor: draft.keyColor,
         pixelCharacterId: characterId,
         characterReferenceUrl: assets.baseTemplate.characterReference?.url
       }, {
-        openRouterApiKey: draft.openRouterApiKey,
         publicAssetBaseUrl: draft.publicAssetBaseUrl
       });
       setAssets((current) => ({
@@ -370,14 +399,13 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     try {
       const result = await createSpriteSheetGeneration({
         actionId: "walk",
-        model: DEFAULT_IMAGE_MODEL,
+        model: draft.imageModel,
         constraintPrompt: walkAction.constraintPrompt,
         customPrompt: draft.walkPrompt,
         keyColor: draft.keyColor,
         pixelCharacterId: characterId,
         characterReferenceUrl: referenceUrl
       }, {
-        openRouterApiKey: draft.openRouterApiKey,
         publicAssetBaseUrl: draft.publicAssetBaseUrl
       });
       setAssets((current) => ({
@@ -556,15 +584,16 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
           </div>
           <div className="toolbar">
             <label className="api-key-field">
-              OpenRouter 密钥
-              <input
-                aria-label="OpenRouter 密钥"
-                autoComplete="off"
-                placeholder="sk-or-v1-..."
-                type="password"
-                value={draft.openRouterApiKey}
-                onChange={(event) => setDraft((current) => ({ ...current, openRouterApiKey: event.target.value }))}
-              />
+              图像模型
+              <select
+                aria-label="像素图像模型"
+                value={draft.imageModel}
+                onChange={(event) => setDraft((current) => ({ ...current, imageModel: event.target.value }))}
+              >
+                {imageModels.map((model) => (
+                  <option key={model.id} value={model.id}>{model.label}</option>
+                ))}
+              </select>
             </label>
             <label className="api-key-field">
               公网资源地址
@@ -1084,7 +1113,7 @@ function clampNumber(value: number, min: number, max: number, fallback: number):
 }
 
 function loadDraft(): PixelSpriteDraft {
-  const raw = readStoredText(DRAFT_STORAGE_KEY, "");
+  const raw = readStoredText(DRAFT_STORAGE_KEY, "") || readStoredText(LEGACY_DRAFT_STORAGE_KEY, "");
   if (!raw) {
     return DEFAULT_DRAFT;
   }

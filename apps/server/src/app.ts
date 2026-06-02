@@ -10,6 +10,7 @@ import { registerWorkflowConfigRoutes } from "./routes/workflowConfig";
 import { registerGodotExportRoutes } from "./routes/godotExport";
 import { registerModule02Routes } from "./routes/module02";
 import { registerOneClickCharacterRoutes, type OneClickCharacterJobRunner } from "./routes/oneClickCharacterJobs";
+import { registerProviderSettingsRoutes } from "./routes/providerSettings";
 import { resolveDefaultFfmpegPath, resolveDefaultModule01CharacterExportDir, type AppConfig } from "./config";
 
 export type CreateAppOptions = Pick<AppConfig, "storageDir"> & Partial<AppConfig> & {
@@ -33,6 +34,13 @@ export function createApp(options: CreateAppOptions) {
   });
 
   app.get("/api/health", async () => ({ ok: true }));
+  registerProviderSettingsRoutes(app, {
+    storageDir: options.storageDir,
+    openRouterApiKey: options.openRouterApiKey,
+    openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
+    openAiCompatibleApiKey: options.openAiCompatibleApiKey,
+    adminSettingsToken: options.adminSettingsToken
+  });
   registerWorkflowConfigRoutes(app, {
     storageDir: options.storageDir
   });
@@ -52,6 +60,8 @@ export function createApp(options: CreateAppOptions) {
     storageDir: options.storageDir,
     module01CharacterExportDir,
     openRouterApiKey: options.openRouterApiKey,
+    openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
+    openAiCompatibleApiKey: options.openAiCompatibleApiKey,
     publicAssetBaseUrl: options.publicAssetBaseUrl,
     localCodexImageGenerator: options.localCodexImageGenerator
   });
@@ -60,6 +70,9 @@ export function createApp(options: CreateAppOptions) {
     storageDir: options.storageDir,
     module01CharacterExportDir,
     openRouterApiKey: options.openRouterApiKey,
+    openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
+    openAiCompatibleApiKey: options.openAiCompatibleApiKey,
+    localCodexImageGenerator: options.localCodexImageGenerator,
     publicAssetBaseUrl: options.publicAssetBaseUrl
   });
   registerProcessingRoutes(app, {
@@ -74,6 +87,8 @@ export function createApp(options: CreateAppOptions) {
     ffmpegPath,
     storageDir: options.storageDir,
     openRouterApiKey: options.openRouterApiKey,
+    openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
+    openAiCompatibleApiKey: options.openAiCompatibleApiKey,
     publicAssetBaseUrl: options.publicAssetBaseUrl,
     oneClickCharacterJobRunner: options.oneClickCharacterJobRunner
   });

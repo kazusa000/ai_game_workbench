@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import type { FastifyInstance, InjectOptions } from "fastify";
 import type { AppConfig } from "../config";
 import {
@@ -13,6 +13,7 @@ import {
   resolveCharacterPath
 } from "../characterStorage";
 import { readModule01WorkflowConfig } from "./workflowConfig";
+import { resolveGenerationProviderModel } from "../providerSettings";
 
 type AdvancedActionKind = "run" | "attack-1" | "jump";
 type OneClickStepStatus = "pending" | "running" | "completed" | "failed" | "skipped";
@@ -48,7 +49,7 @@ export type OneClickCharacterJobRunner = (
   context: OneClickJobContext
 ) => Promise<void>;
 
-type OneClickCharacterRouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "publicAssetBaseUrl" | "ffmpegPath"> & {
+type OneClickCharacterRouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "ffmpegPath"> & {
   oneClickCharacterJobRunner?: OneClickCharacterJobRunner;
 };
 
@@ -85,22 +86,6 @@ const REQUIRED_BASE_STEP_IDS = [
 export function registerOneClickCharacterRoutes(app: FastifyInstance, config: OneClickCharacterRouteConfig): void {
   const jobs = new Map<string, OneClickCharacterJob>();
 
-  app.put("/api/module01/secrets/openrouter-key", async (request, reply) => {
-    const input = request.body as { apiKey?: string };
-    const apiKey = input.apiKey?.trim();
-    if (!apiKey) {
-      await writeOpenRouterSecret(config.storageDir, "");
-      return { configured: false };
-    }
-    await writeOpenRouterSecret(config.storageDir, apiKey);
-    return { configured: true, suffix: getSecretSuffix(apiKey) };
-  });
-
-  app.get("/api/module01/secrets/openrouter-key", async () => {
-    const apiKey = await readOpenRouterSecret(config.storageDir);
-    return apiKey ? { configured: true, suffix: getSecretSuffix(apiKey) } : { configured: false };
-  });
-
   app.get("/api/module01/one-click-character-jobs/active", async (request) => {
     const { characterId } = request.query as { characterId?: string };
     const normalized = characterId ? normalizeCharacterId(characterId) : "";
@@ -121,7 +106,7 @@ export function registerOneClickCharacterRoutes(app: FastifyInstance, config: On
 
   app.post("/api/module01/one-click-character-jobs", async (request, reply) => {
     const input = request.body as OneClickCharacterJobInput;
-    const validation = await validateStartInput(input, config, request.headers["x-openrouter-api-key"]);
+    const validation = await validateStartInput(input, config);
     if ("error" in validation) {
       return reply.code(validation.statusCode).send(validation.body);
     }
@@ -175,11 +160,9 @@ export function registerOneClickCharacterRoutes(app: FastifyInstance, config: On
 
 async function validateStartInput(
   input: OneClickCharacterJobInput,
-  config: OneClickCharacterRouteConfig,
-  apiKeyHeader: string | string[] | undefined
+  config: OneClickCharacterRouteConfig
 ): Promise<{
   characterId: string;
-  apiKey: string;
   publicAssetBaseUrl: string;
   referenceImageDataUrl: string;
   firstFrame: Required<NonNullable<OneClickCharacterJobInput["firstFrame"]>>;
@@ -223,17 +206,23 @@ async function validateStartInput(
     return { error: true, statusCode: 400, body: { error: "攻击中间帧提示词为空，请先去攻击动作1页面保存配置。" } };
   }
 
-  const apiKey = readHeaderApiKey(apiKeyHeader)
-    ?? await readOpenRouterSecret(config.storageDir)
-    ?? config.openRouterApiKey?.trim()
-    ?? "";
-  if (!apiKey) {
-    return { error: true, statusCode: 400, body: { error: "OPENROUTER_API_KEY is not configured" } };
+  const firstFrameModel = await resolveGenerationProviderModel(config, input.firstFrame.model, "image");
+  if ("error" in firstFrameModel) {
+    return { error: true, statusCode: firstFrameModel.statusCode, body: { error: firstFrameModel.error } };
+  }
+  const directionImageModel = readString(workflowConfig, "directionImageModel") || input.firstFrame.model;
+  const directionModel = await resolveGenerationProviderModel(config, directionImageModel, "image");
+  if ("error" in directionModel) {
+    return { error: true, statusCode: directionModel.statusCode, body: { error: directionModel.error } };
+  }
+  const videoModel = readString(workflowConfig, "videoModel") || "bytedance/seedance-2.0";
+  const videoProviderModel = await resolveGenerationProviderModel(config, videoModel, "video");
+  if ("error" in videoProviderModel) {
+    return { error: true, statusCode: videoProviderModel.statusCode, body: { error: videoProviderModel.error } };
   }
 
   return {
     characterId,
-    apiKey,
     publicAssetBaseUrl: input.publicAssetBaseUrl?.trim() || config.publicAssetBaseUrl?.trim() || "https://darn-skittle-unwoven.ngrok-free.dev",
     referenceImageDataUrl: input.referenceImageDataUrl,
     firstFrame: {
@@ -331,7 +320,6 @@ async function runDefaultOneClickJob(
   });
 
   const headers = {
-    "x-openrouter-api-key": input.apiKey,
     "x-public-asset-base-url": input.publicAssetBaseUrl,
     "x-character-id": encodeURIComponent(input.characterId)
   };
@@ -392,7 +380,6 @@ async function runDefaultOneClickJob(
   context.updateStep("idle-4dir", "completed", { resultUrl: readResultUrl(idle) });
 
   const walkJobId = await runRequiredStep(context, "walk-video", async () => submitVideoAndPoll(app, {
-    apiKey: input.apiKey,
     firstFrameUrl: requirePublicUrl(walk),
     prompt: videoPrompt,
     model: videoModel,
@@ -429,7 +416,6 @@ async function runDefaultOneClickJob(
       }));
       context.updateStep("run-keyframe", "completed", { resultUrl: readResultUrl(runKeyframe) });
       const runJobId = await runStep(context, "run-video", async () => submitVideoAndPoll(app, {
-        apiKey: input.apiKey,
         firstFrameUrl: requirePublicUrl(runKeyframe),
         prompt: runVideoPrompt,
         model: videoModel,
@@ -470,7 +456,6 @@ async function runDefaultOneClickJob(
       }));
       context.updateStep("attack-midframe", "completed", { resultUrl: readResultUrl(middle) });
       const attackJobId = await runStep(context, "attack-video", async () => submitVideoAndPoll(app, {
-        apiKey: input.apiKey,
         firstFrameUrl: requirePublicUrl(attackStart, input.publicAssetBaseUrl),
         referenceOnly: true,
         inputReferenceUrls: [
@@ -502,7 +487,6 @@ async function runDefaultOneClickJob(
         keyColor
       }));
       const jumpJobId = await runStep(context, "jump-video", async () => submitVideoAndPoll(app, {
-        apiKey: input.apiKey,
         firstFrameUrl: requirePublicUrl(jumpStart, input.publicAssetBaseUrl),
         prompt: requireConfigString(workflow, "finalAdvancedJumpPrompt", "跳跃视频提示词"),
         model: videoModel,
@@ -577,7 +561,6 @@ function getOptionalStepIds(prefix: "run" | "attack" | "jump"): string[] {
 async function submitVideoAndPoll(
   app: FastifyInstance,
   input: {
-    apiKey: string;
     firstFrameUrl: string;
     lastFrameUrl?: string;
     referenceOnly?: boolean;
@@ -593,7 +576,6 @@ async function submitVideoAndPoll(
   const submit = await injectJson(app, {
     method: "POST",
     url: "/api/generation/video",
-    headers: { "x-openrouter-api-key": input.apiKey },
     payload: {
       model: input.model,
       prompt: input.prompt,
@@ -616,8 +598,7 @@ async function submitVideoAndPoll(
   for (let attempt = 0; attempt < 240; attempt += 1) {
     const status = await injectJson(app, {
       method: "GET",
-      url: `/api/generation/video/${encodeURIComponent(jobId)}?${query.toString()}`,
-      headers: { "x-openrouter-api-key": input.apiKey }
+      url: `/api/generation/video/${encodeURIComponent(jobId)}?${query.toString()}`
     });
     const normalized = findStringValue(status, ["status"])?.toLowerCase() ?? "pending";
     if (normalized === "completed" && findStringValue(status, ["localVideoUrl"])) {
@@ -763,36 +744,6 @@ function calculateProgress(steps: OneClickJobStep[]): number {
 
 function touchJob(job: OneClickCharacterJob): void {
   job.updatedAt = new Date().toISOString();
-}
-
-async function readOpenRouterSecret(storageDir: string): Promise<string | undefined> {
-  const path = resolveSecretsPath(storageDir);
-  if (!existsSync(path)) {
-    return undefined;
-  }
-  const parsed = JSON.parse(await readFile(path, "utf8")) as { openRouterApiKey?: unknown };
-  return typeof parsed.openRouterApiKey === "string" && parsed.openRouterApiKey.trim()
-    ? parsed.openRouterApiKey.trim()
-    : undefined;
-}
-
-async function writeOpenRouterSecret(storageDir: string, apiKey: string): Promise<void> {
-  const path = resolveSecretsPath(storageDir);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify({ openRouterApiKey: apiKey }, null, 2)}\n`, "utf8");
-}
-
-function resolveSecretsPath(storageDir: string): string {
-  return join(storageDir, "config", "module01-secrets.json");
-}
-
-function getSecretSuffix(apiKey: string): string {
-  return apiKey.slice(-4);
-}
-
-function readHeaderApiKey(value: string | string[] | undefined): string | undefined {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return raw?.trim() || undefined;
 }
 
 function parseDataUrlImage(dataUrl: string): { buffer: Buffer; extension: "png" | "jpg" | "webp" } {

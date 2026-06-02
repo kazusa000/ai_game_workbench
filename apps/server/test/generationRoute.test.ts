@@ -19,6 +19,9 @@ function makeStorageDir() {
   return dir;
 }
 
+const TEST_OPENROUTER_API_KEY = "sk-or-v1-web-key";
+const TEST_COMPATIBLE_API_KEY = "sk-compatible-web-key";
+
 describe("generation route", () => {
   it("stores a generated base template in the selected character folder", async () => {
     const storageDir = makeStorageDir();
@@ -43,6 +46,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -102,6 +106,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -168,6 +173,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -234,6 +240,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir,
       localCodexImageGenerator
     });
@@ -272,10 +279,96 @@ describe("generation route", () => {
     await app.close();
   });
 
+  it("routes APIMart image generation through the OpenAI images endpoint using the configured compatible key", async () => {
+    const storageDir = makeStorageDir();
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe("https://api.apimart.ai/v1/images/generations");
+      expect(init?.headers).toMatchObject({
+        Authorization: `Bearer ${TEST_COMPATIBLE_API_KEY}`,
+        "Content-Type": "application/json"
+      });
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      expect(body).toMatchObject({
+        model: "gpt-image-2",
+        prompt: "APIMart first-frame prompt",
+        n: 1,
+        size: "1:1",
+        resolution: "1k"
+      });
+      expect(body.image_urls).toEqual(expect.arrayContaining([
+        expect.stringMatching(/^data:image\/png;base64,/),
+        "data:image/png;base64,AQIDBA=="
+      ]));
+      return Response.json({
+        data: [
+          {
+            url: "data:image/png;base64,CQgHBg=="
+          }
+        ]
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      openAiCompatibleBaseUrl: "https://api.apimart.ai/v1",
+      openAiCompatibleApiKey: TEST_COMPATIBLE_API_KEY,
+      storageDir
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generation/first-frame",
+      headers: {
+        "x-public-asset-base-url": "https://assets.example.com"
+      },
+      payload: {
+        model: "apimart/gpt-image-2",
+        prompt: "APIMart first-frame prompt",
+        targetSize: 1024,
+        keyColor: "#00ff00",
+        referenceImageDataUrl: "data:image/png;base64,AQIDBA=="
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect([...readFileSync(response.json().localPath)]).toEqual([9, 8, 7, 6]);
+
+    await app.close();
+  });
+
+  it("rejects APIMart image generation when the compatible API key is missing", async () => {
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir: makeStorageDir()
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generation/first-frame",
+      payload: {
+        model: "apimart/gpt-image-2",
+        prompt: "APIMart first-frame prompt",
+        targetSize: 1024,
+        keyColor: "#00ff00"
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("API key is not configured");
+
+    await app.close();
+  });
+
   it("serves the built-in cel anime style reference image for frontend preview", async () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -296,6 +389,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -323,6 +417,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -362,6 +457,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -404,6 +500,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -466,6 +563,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -516,6 +614,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -573,6 +672,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir,
       localCodexImageGenerator
     });
@@ -638,6 +738,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -666,7 +767,7 @@ describe("generation route", () => {
     await app.close();
   });
 
-  it("uses an OpenRouter key supplied by the web request header", async () => {
+  it("uses the configured OpenRouter key instead of a web request header key", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "https://example.com/hero.png") {
         return new Response(new Uint8Array([1]), {
@@ -681,6 +782,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -689,7 +791,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "sk-or-v1-header-ignored"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -717,6 +819,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -755,6 +858,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -796,6 +900,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -838,6 +943,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir: makeStorageDir()
     });
     await app.ready();
@@ -895,6 +1001,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -946,6 +1053,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();
@@ -1005,6 +1113,7 @@ describe("generation route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      openRouterApiKey: TEST_OPENROUTER_API_KEY,
       storageDir
     });
     await app.ready();

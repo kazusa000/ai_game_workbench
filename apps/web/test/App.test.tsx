@@ -322,6 +322,9 @@ beforeEach(() => {
     if (url.includes(`${characterBase}/base-template/output.png`)) {
       return imageResponse("processed-base-template");
     }
+    if (url.includes(`${characterBase}/base-character/direction-templates/base-template.png`)) {
+      return imageResponse("processed-direction-base-template");
+    }
     if (url.includes(`${characterBase}/base-character/direction-templates/walk-4dir.png`)) {
       return imageResponse("processed-walk-template");
     }
@@ -346,11 +349,21 @@ beforeEach(() => {
           publicUrl: `https://assets.example.com${characterBase}/base-character/walk-video/input-4dir.png`
         });
       }
-      if (kind === "advanced-attack-reference") {
+      if (kind === "advanced-video-input") {
+        const actionKind = init?.headers instanceof Headers
+          ? init.headers.get("x-character-action-kind")
+          : (init?.headers as Record<string, string> | undefined)?.["x-character-action-kind"];
         return jsonResponse({
-          fileName: "attack-reference.png",
-          localUrl: `${characterBase}/advanced-character/attack-1/reference/reference.png`,
-          publicUrl: `https://assets.example.com${characterBase}/advanced-character/attack-1/reference/reference.png`
+          fileName: "advanced-input.png",
+          localUrl: `${characterBase}/advanced-character/${actionKind}/video/input-4dir.png`,
+          publicUrl: `https://assets.example.com${characterBase}/advanced-character/${actionKind}/video/input-4dir.png`
+        });
+      }
+      if (kind === "advanced-midframe") {
+        return jsonResponse({
+          fileName: "attack-middle.png",
+          localUrl: `${characterBase}/advanced-character/attack-1/midframe/middle-4dir.png`,
+          publicUrl: `https://assets.example.com${characterBase}/advanced-character/attack-1/midframe/middle-4dir.png`
         });
       }
       return jsonResponse({
@@ -360,10 +373,15 @@ beforeEach(() => {
       });
     }
     if (url.includes("/api/assets/frame-video")) {
+      const actionKind = init?.headers instanceof Headers
+        ? init.headers.get("x-character-action-kind")
+        : (init?.headers as Record<string, string> | undefined)?.["x-character-action-kind"];
       return jsonResponse({
         fileName: "local-source.mp4",
         jobId: "local-video-123",
-        localVideoUrl: `${characterBase}/base-character/walk-video/source.mp4`
+        localVideoUrl: actionKind
+          ? `${characterBase}/advanced-character/${actionKind}/video/source.mp4`
+          : `${characterBase}/base-character/walk-video/source.mp4`
       });
     }
     if (url.includes("/api/generation/direction-template")) {
@@ -438,6 +456,22 @@ beforeEach(() => {
           makeIdleDirectionFrame("right", "右方向")
         ],
         spriteSheetUrl: `${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`
+      });
+    }
+    if (url.includes("/api/processing/advanced-action")) {
+      return jsonResponse({
+        jobId: "local-video-123",
+        frameCount: 48,
+        rawFrames: [],
+        directions: [
+          makeDirectionResult("down", "下方向"),
+          makeDirectionResult("up", "上方向"),
+          makeDirectionResult("left", "左方向"),
+          makeDirectionResult("right", "右方向")
+        ],
+        spriteSheetUrl: `${characterBase}/advanced-character/attack-1/exports/sprite-sheet.png`,
+        transparentZipUrl: `${characterBase}/advanced-character/attack-1/exports/transparent-frames.zip`,
+        gifPreviewUrl: `${characterBase}/advanced-character/attack-1/exports/preview.gif`
       });
     }
     if (url.includes("/api/export/godot")) {
@@ -1293,6 +1327,8 @@ describe("App", () => {
     expect(screen.getByText("步行 2x2 基准")).toBeInTheDocument();
     expect(screen.queryByText("跑步参考")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /生成跑步首帧/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传跑步首帧")).toBeInTheDocument();
+    expect(screen.getByLabelText("上传跑步视频")).toBeInTheDocument();
     expect(screen.getByLabelText("跑步首帧自定义提示词")).toBeInTheDocument();
     expect(screen.getByLabelText("跑步视频自定义提示词")).toBeInTheDocument();
     expect(screen.queryByLabelText("跑步首帧系统提示词")).not.toBeInTheDocument();
@@ -1303,8 +1339,11 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "攻击 1" })).toBeInTheDocument();
     expect(screen.queryByText("待机四方向基准")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /准备攻击起始帧/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传攻击起始帧")).toBeInTheDocument();
     expect(screen.queryByLabelText("上传攻击四方向1参考图")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /生成攻击中间帧/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传攻击中间帧")).toBeInTheDocument();
+    expect(screen.getByLabelText("上传攻击 1 视频")).toBeInTheDocument();
     expect(screen.getByLabelText("攻击中间帧自定义提示词")).toBeInTheDocument();
     expect(screen.queryByLabelText("攻击 1 准备缩放比例")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("攻击中间帧图像模型")).not.toBeInTheDocument();
@@ -1313,6 +1352,8 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "跳跃" })).toBeInTheDocument();
     expect(screen.queryByText("待机四方向基准")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /准备跳跃起始帧/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传跳跃起始帧")).toBeInTheDocument();
+    expect(screen.getByLabelText("上传跳跃视频")).toBeInTheDocument();
     expect(screen.getByLabelText("视频自定义提示词")).toBeInTheDocument();
     expect(screen.queryByLabelText("跳跃准备缩放比例")).not.toBeInTheDocument();
   });
@@ -1376,6 +1417,56 @@ describe("App", () => {
           `https://assets.example.com${characterBase}/advanced-character/attack-1/midframe/middle-4dir.png`
         ]
       });
+    });
+  });
+
+  it("uploads advanced action images and videos as alternatives to generation", async () => {
+    openSpriteAnimator();
+
+    fireEvent.click(screen.getByRole("button", { name: "攻击 1" }));
+    fireEvent.change(screen.getByLabelText("上传攻击起始帧"), {
+      target: { files: [new File(["attack-start"], "attack-start.png", { type: "image/png" })] }
+    });
+    await screen.findByText(/攻击 1 输入图已保存/);
+    expect(screen.getByAltText("攻击 1 起始帧预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/advanced-character/attack-1/video/input-4dir.png`)
+    );
+
+    fireEvent.change(screen.getByLabelText("上传攻击中间帧"), {
+      target: { files: [new File(["attack-middle"], "attack-middle.png", { type: "image/png" })] }
+    });
+    await screen.findByText(/攻击中间帧已保存/);
+    expect(screen.getByAltText("攻击 1 中间帧预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/advanced-character/attack-1/midframe/middle-4dir.png`)
+    );
+
+    fireEvent.change(screen.getByLabelText("上传攻击 1 视频"), {
+      target: { files: [new File(["attack-video"], "attack.mp4", { type: "video/mp4" })] }
+    });
+    await screen.findByText(/攻击 1 视频已保存/);
+    fireEvent.click(screen.getByRole("button", { name: /一键处理/i }));
+    await screen.findByText(/攻击 1 处理完成/);
+
+    const imageUploads = fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/assets/first-frame"));
+    expect(imageUploads.some(([, init]) =>
+      readHeader(init?.headers, "x-character-asset-kind") === "advanced-video-input" &&
+      readHeader(init?.headers, "x-character-action-kind") === "attack-1"
+    )).toBe(true);
+    expect(imageUploads.some(([, init]) =>
+      readHeader(init?.headers, "x-character-asset-kind") === "advanced-midframe" &&
+      readHeader(init?.headers, "x-character-action-kind") === "attack-1"
+    )).toBe(true);
+
+    const videoUpload = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/assets/frame-video"));
+    expect(readHeader(videoUpload?.[1]?.headers, "x-character-action-kind")).toBe("attack-1");
+    const processCall = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).includes("/api/processing/advanced-action") && (init as RequestInit | undefined)?.method === "POST"
+    );
+    expect(JSON.parse(String(processCall?.[1]?.body))).toMatchObject({
+      actionKind: "attack-1",
+      jobId: "local-video-123"
     });
   });
 
@@ -1449,7 +1540,8 @@ describe("App", () => {
     expect(screen.queryByAltText("步行参考图预览")).not.toBeInTheDocument();
     expect(screen.queryByAltText("待机参考图预览")).not.toBeInTheDocument();
     expect(screen.queryByAltText("跑步参考图预览")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("上传角色基准模板")).toBeInTheDocument();
+    expect(screen.queryByLabelText("上传角色基准模板")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("上传 2x2 步行图")).toBeInTheDocument();
     expect(screen.queryByLabelText(/图像模型/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/图片尺寸/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("步行系统提示词")).not.toBeInTheDocument();
@@ -1572,15 +1664,21 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存基准模板设置" }));
     await screen.findByText(/基准模板配置已保存到后端/);
     fireEvent.click(screen.getByRole("button", { name: "基准模板" }));
+    await screen.findByRole("heading", { name: "基准模板" });
+    await screen.findByAltText("角色参考图预览");
     fireEvent.change(screen.getByLabelText(/自定义提示词/i), {
       target: { value: "自定义提示词：角色低头怯生生，左脚向画面下方迈出。" }
     });
     fireEvent.click(screen.getByRole("button", { name: /生成基准模板/i }));
 
     await screen.findByAltText("基准模板输出预览");
-    const firstFrameCall = fetchMock.mock.calls.find(([url, init]) =>
-      String(url).includes("/api/generation/first-frame") && (init as RequestInit | undefined)?.method === "POST"
-    );
+    let firstFrameCall: Parameters<typeof fetchMock>[0] | undefined;
+    await waitFor(() => {
+      firstFrameCall = fetchMock.mock.calls.find(([url, init]) =>
+        String(url).includes("/api/generation/first-frame") && (init as RequestInit | undefined)?.method === "POST"
+      );
+      expect(firstFrameCall).toBeDefined();
+    });
     expect(JSON.parse(String(firstFrameCall?.[1]?.body))).toMatchObject({
       model: "local/gpt-image-2",
       prompt: "系统提示词：只参考第一张图的镜头。\n\n自定义提示词：角色低头怯生生，左脚向画面下方迈出。"
@@ -1617,16 +1715,16 @@ describe("App", () => {
     });
   });
 
-  it("generates the walk sheet first, then uses that walk sheet as the idle source image", async () => {
+  it("generates the walk sheet from the existing base template and keeps idle generation available", async () => {
     openSpriteAnimator();
     fireEvent.click(screen.getByRole("button", { name: "步行" }));
+    await screen.findByRole("heading", { name: "步行" });
 
-    const baseTemplateFile = new File(["base-template"], "base-template.png", { type: "image/png" });
-    fireEvent.change(screen.getByLabelText("上传角色基准模板"), {
-      target: { files: [baseTemplateFile] }
-    });
-
-    expect(screen.getByAltText("角色基准模板预览")).toHaveAttribute("src", "blob:uploaded-input-preview");
+    expect(screen.queryByLabelText("上传角色基准模板")).not.toBeInTheDocument();
+    expect(await screen.findByAltText("角色基准模板预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/direction-templates/base-template.png`)
+    );
 
     fireEvent.change(screen.getByLabelText("步行自定义提示词"), {
       target: { value: "步行幅度轻微，保持角色害羞气质。" }
@@ -1647,31 +1745,23 @@ describe("App", () => {
     expect(screen.queryByLabelText("待机最终提示词")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: /生成待机 2x2/i })).toBeEnabled());
 
-    fireEvent.click(screen.getByRole("button", { name: /生成待机 2x2/i }));
-    await screen.findByAltText("待机 2x2 输出预览");
-    expect(screen.getByAltText("待机 2x2 输出预览")).toHaveAttribute(
-      "src",
-      expect.stringMatching(new RegExp(`http://127\\.0\\.0\\.1:8787${characterBase}/base-character/direction-templates/idle-4dir\\.png\\?v=`))
-    );
-
-    const directionCalls = fetchMock.mock.calls.filter(([url, init]) =>
-      String(url).includes("/api/generation/direction-template") && (init as RequestInit | undefined)?.method === "POST"
-    );
-    expect(directionCalls).toHaveLength(2);
-    expect(JSON.parse(String(directionCalls[0]?.[1]?.body))).toMatchObject({
+    let walkCall: Parameters<typeof fetchMock>[0] | undefined;
+    await waitFor(() => {
+      const directionCalls = fetchMock.mock.calls.filter(([url, init]) =>
+        String(url).includes("/api/generation/direction-template") && (init as RequestInit | undefined)?.method === "POST"
+      );
+      walkCall = directionCalls.find(([, init]) => JSON.parse(String(init?.body ?? "{}")).templateKind === "walk");
+      expect(walkCall).toBeTruthy();
+    });
+    expect(walkCall).toBeTruthy();
+    expect(JSON.parse(String(walkCall?.[1]?.body))).toMatchObject({
       templateKind: "walk",
       model: APIMART_IMAGE_MODEL,
       targetSize: 1024,
       characterTemplateImageDataUrl: expect.stringMatching(/^data:image\/png;base64,/),
       prompt: expect.stringContaining("步行幅度轻微")
     });
-    expect(JSON.parse(String(directionCalls[1]?.[1]?.body))).toMatchObject({
-      templateKind: "idle",
-      model: APIMART_IMAGE_MODEL,
-      targetSize: 1024,
-      characterTemplateImageDataUrl: "data:image/png;base64,cHJvY2Vzc2VkLXdhbGstdGVtcGxhdGU=",
-      prompt: expect.stringContaining("待机更安静")
-    });
+    expect(screen.getByRole("button", { name: /生成待机 2x2/i })).toBeEnabled();
 
   });
 

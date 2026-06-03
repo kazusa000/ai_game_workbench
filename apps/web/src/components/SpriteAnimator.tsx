@@ -1061,46 +1061,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
   };
 
-  const handleDirectionBaseTemplateUpload = (file: File) => {
-    const characterId = requireCharacter(setDirectionTemplateStatus);
-    if (!characterId) {
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      setDirectionTemplateStatus("上传失败：请选择图片文件。");
-      return;
-    }
-    assetHydrationVersionRef.current += 1;
-    const previewUrl = URL.createObjectURL(file);
-    setDirectionBaseTemplateFile(file);
-    setDirectionBaseTemplatePreview((current) => {
-      if (current?.url.startsWith("blob:")) {
-        URL.revokeObjectURL(current.url);
-      }
-      return {
-        name: file.name,
-        url: previewUrl
-      };
-    });
-    setDirectionTemplateStatus(`角色基准模板已载入：${file.name}，正在保存资源。`);
-    void uploadFirstFrameAsset(file, {
-      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
-      characterId,
-      characterAssetKind: "direction-base-template"
-    })
-      .then((asset) => {
-        setDirectionBaseTemplatePreview((current) => current ? {
-          ...current,
-          name: asset.fileName,
-          publicUrl: asset.publicUrl
-        } : current);
-        setDirectionTemplateStatus(`角色基准模板已保存：${asset.fileName}`);
-      })
-      .catch((error: unknown) => {
-        setDirectionTemplateStatus(`角色基准模板保存失败：${getErrorMessage(error)}`);
-      });
-  };
-
   const handleVideoFirstFrameUpload = (file: File) => {
     const characterId = requireCharacter(setVideoStatus);
     if (!characterId) {
@@ -1256,7 +1216,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       return readFileAsDataUrl(directionBaseTemplateFile);
     }
     if (!effectiveDirectionBaseTemplatePreview) {
-      throw new Error("请先生成或上传角色基准模板。");
+      throw new Error("请先生成角色基准模板。");
     }
     return readImageUrlAsDataUrl(effectiveDirectionBaseTemplatePreview.url);
   };
@@ -1443,6 +1403,121 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       })
       .catch((error: unknown) => {
         setFrameStatus(`帧处理视频保存失败：${getErrorMessage(error)}`);
+      });
+  };
+
+  const handleAdvancedInputImageUpload = (actionKind: AdvancedActionKind, file: File) => {
+    const characterId = requireCharacter((message) => updateAdvancedAction(actionKind, { status: message }));
+    if (!characterId) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      updateAdvancedAction(actionKind, { status: "上传失败：请选择图片文件。" });
+      return;
+    }
+    const label = getAdvancedActionLabel(actionKind);
+    const previewUrl = URL.createObjectURL(file);
+    const preview = {
+      name: file.name,
+      url: previewUrl
+    };
+    updateAdvancedAction(actionKind, {
+      inputPreview: preview,
+      keyframePreview: actionKind === "run" ? preview : advancedActions[actionKind].keyframePreview,
+      ...(actionKind === "attack-1" ? { middleFramePreview: null } : {}),
+      status: `已载入${label} 输入图：${file.name}，正在保存资源。`
+    });
+    void uploadFirstFrameAsset(file, {
+      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+      characterId,
+      actionKind,
+      characterAssetKind: "advanced-video-input"
+    })
+      .then((asset) => {
+        const savedPreview = {
+          name: asset.fileName,
+          url: asset.localUrl ? appendCacheBust(toAbsoluteApiUrl(asset.localUrl), Date.now().toString(36)) : previewUrl,
+          publicUrl: asset.publicUrl
+        };
+        updateAdvancedAction(actionKind, {
+          inputPreview: savedPreview,
+          keyframePreview: actionKind === "run" ? savedPreview : advancedActions[actionKind].keyframePreview,
+          ...(actionKind === "attack-1" ? { middleFramePreview: null } : {}),
+          status: `${label} 输入图已保存：${asset.fileName}，可以提交视频任务。`
+        });
+      })
+      .catch((error: unknown) => {
+        updateAdvancedAction(actionKind, { status: `${label} 输入图保存失败：${getErrorMessage(error)}` });
+      });
+  };
+
+  const handleAttackMidframeUpload = (file: File) => {
+    const actionKind: AdvancedActionKind = "attack-1";
+    const characterId = requireCharacter((message) => updateAdvancedAction(actionKind, { status: message }));
+    if (!characterId) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      updateAdvancedAction(actionKind, { status: "上传失败：请选择图片文件。" });
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    updateAdvancedAction(actionKind, {
+      middleFramePreview: {
+        name: file.name,
+        url: previewUrl
+      },
+      status: `已载入攻击中间帧：${file.name}，正在保存资源。`
+    });
+    void uploadFirstFrameAsset(file, {
+      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+      characterId,
+      actionKind,
+      characterAssetKind: "advanced-midframe"
+    })
+      .then((asset) => {
+        updateAdvancedAction(actionKind, {
+          middleFramePreview: {
+            name: asset.fileName,
+            url: asset.localUrl ? appendCacheBust(toAbsoluteApiUrl(asset.localUrl), Date.now().toString(36)) : previewUrl,
+            publicUrl: asset.publicUrl
+          },
+          status: `攻击中间帧已保存：${asset.fileName}，可以提交攻击视频任务。`
+        });
+      })
+      .catch((error: unknown) => {
+        updateAdvancedAction(actionKind, { status: `攻击中间帧保存失败：${getErrorMessage(error)}` });
+      });
+  };
+
+  const handleAdvancedFrameVideoUpload = (actionKind: AdvancedActionKind, file: File) => {
+    const characterId = requireCharacter((message) => updateAdvancedAction(actionKind, { status: message }));
+    if (!characterId) {
+      return;
+    }
+    if (!file.type.startsWith("video/")) {
+      updateAdvancedAction(actionKind, { status: "上传失败：请选择视频文件。" });
+      return;
+    }
+    const label = getAdvancedActionLabel(actionKind);
+    updateAdvancedAction(actionKind, {
+      result: null,
+      status: `已载入${label} 视频：${file.name}，正在保存资源。`
+    });
+    void uploadFrameVideoAsset(file, { characterId, actionKind })
+      .then((asset) => {
+        updateAdvancedAction(actionKind, {
+          jobId: asset.jobId,
+          outputPreview: {
+            name: asset.fileName,
+            url: toAbsoluteApiUrl(asset.localVideoUrl),
+            publicUrl: asset.localVideoUrl
+          },
+          status: `${label} 视频已保存：${asset.fileName}，可以一键处理。`
+        });
+      })
+      .catch((error: unknown) => {
+        updateAdvancedAction(actionKind, { status: `${label} 视频保存失败：${getErrorMessage(error)}` });
       });
   };
 
@@ -1751,10 +1826,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       });
       updateAdvancedAction(actionKind, {
         result: normalizeFourDirectionResult(result),
-        status: `${label}处理完成：抽帧 ${result.frameCount} 帧。`
+        status: `${label} 处理完成：抽帧 ${result.frameCount} 帧。`
       });
     } catch (error: unknown) {
-      updateAdvancedAction(actionKind, { status: `${label}处理失败：${getErrorMessage(error)}` });
+      updateAdvancedAction(actionKind, { status: `${label} 处理失败：${getErrorMessage(error)}` });
     } finally {
       updateAdvancedAction(actionKind, { isProcessing: false });
     }
@@ -2586,21 +2661,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   </MediaPane>
                 </Module01MediaGrid>
                 <div className="control-row">
-                  <label className="file-picker">
-                    <Upload size={16} /> 上传角色基准模板
-                    <input
-                      aria-label="上传角色基准模板"
-                      className="visually-hidden"
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) {
-                          handleDirectionBaseTemplateUpload(file);
-                        }
-                      }}
-                    />
-                  </label>
                   <button
                     className="tool-button primary"
                     type="button"
@@ -2758,6 +2818,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               onGenerateKeyframe={() => void handleGenerateRunKeyframe()}
               onSubmitVideo={() => void handleSubmitAdvancedVideo("run")}
               onProcess={() => void handleProcessAdvancedAction("run")}
+              onUploadInputImage={(file) => handleAdvancedInputImageUpload("run", file)}
+              onUploadVideo={(file) => handleAdvancedFrameVideoUpload("run", file)}
               onChangeCustomPrompt={setAdvancedRunCustomPrompt}
               onChangeRunVideoCustomPrompt={setAdvancedRunVideoCustomPrompt}
             />
@@ -2783,6 +2845,9 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               onGenerateMiddleFrame={() => void handleGenerateAttackMidframe()}
               onSubmitVideo={() => void handleSubmitAdvancedVideo("attack-1")}
               onProcess={() => void handleProcessAdvancedAction("attack-1")}
+              onUploadInputImage={(file) => handleAdvancedInputImageUpload("attack-1", file)}
+              onUploadMiddleFrame={handleAttackMidframeUpload}
+              onUploadVideo={(file) => handleAdvancedFrameVideoUpload("attack-1", file)}
               onChangeCustomPrompt={setAdvancedAttackCustomPrompt}
               attackMidframeCustomPrompt={advancedAttackMidframeCustomPrompt}
               onChangeAttackMidframeCustomPrompt={setAdvancedAttackMidframeCustomPrompt}
@@ -2806,6 +2871,8 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               onPrepareInput={() => void handlePrepareAdvancedStartFrame("jump")}
               onSubmitVideo={() => void handleSubmitAdvancedVideo("jump")}
               onProcess={() => void handleProcessAdvancedAction("jump")}
+              onUploadInputImage={(file) => handleAdvancedInputImageUpload("jump", file)}
+              onUploadVideo={(file) => handleAdvancedFrameVideoUpload("jump", file)}
               onChangeCustomPrompt={setAdvancedJumpCustomPrompt}
             />
           ) : null}
@@ -3144,6 +3211,9 @@ function AdvancedActionStage({
   onPrepareInput,
   onSubmitVideo,
   onProcess,
+  onUploadInputImage,
+  onUploadMiddleFrame,
+  onUploadVideo,
   onChangeCustomPrompt,
   onChangeRunVideoCustomPrompt,
   attackMidframeCustomPrompt,
@@ -3171,12 +3241,16 @@ function AdvancedActionStage({
   onPrepareInput?: () => void;
   onSubmitVideo: () => void;
   onProcess: () => void;
+  onUploadInputImage: (file: File) => void;
+  onUploadMiddleFrame?: (file: File) => void;
+  onUploadVideo: (file: File) => void;
   onChangeCustomPrompt: (prompt: string) => void;
   onChangeRunVideoCustomPrompt?: (prompt: string) => void;
   attackMidframeCustomPrompt?: string;
   onChangeAttackMidframeCustomPrompt?: (prompt: string) => void;
 }) {
   const sectionTitle = (suffix: string) => title === "攻击 1" ? `${title} ${suffix}` : `${title}${suffix}`;
+  const videoUploadLabel = `上传${title === "攻击 1" ? "攻击 1 " : title}视频`;
   const processedPreview = result?.directions.length ? (
     <DirectionPreviewGrid
       directions={result.directions}
@@ -3228,6 +3302,22 @@ function AdvancedActionStage({
               <WandSparkles size={16} /> {isGeneratingKeyframe ? "生成中" : "生成跑步首帧"}
             </button>
           ) : null}
+          <label className="file-picker">
+            <Upload size={16} /> {actionKind === "run" ? "上传跑步首帧" : actionKind === "attack-1" ? "上传攻击起始帧" : "上传跳跃起始帧"}
+            <input
+              aria-label={actionKind === "run" ? "上传跑步首帧" : actionKind === "attack-1" ? "上传攻击起始帧" : "上传跳跃起始帧"}
+              className="visually-hidden"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onUploadInputImage(file);
+                }
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
           {onPrepareInput ? (
             <button className="tool-button primary" type="button" disabled={isPreparingInput} onClick={onPrepareInput}>
               <WandSparkles size={16} /> {isPreparingInput ? "准备中" : actionKind === "attack-1" ? "准备攻击起始帧" : "准备跳跃起始帧"}
@@ -3237,6 +3327,24 @@ function AdvancedActionStage({
             <button className="tool-button primary" type="button" disabled={isGeneratingMidframe} onClick={onGenerateMiddleFrame}>
               <WandSparkles size={16} /> {isGeneratingMidframe ? "生成中" : "生成攻击中间帧"}
             </button>
+          ) : null}
+          {onUploadMiddleFrame ? (
+            <label className="file-picker">
+              <Upload size={16} /> 上传攻击中间帧
+              <input
+                aria-label="上传攻击中间帧"
+                className="visually-hidden"
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    onUploadMiddleFrame(file);
+                  }
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
           ) : null}
         </div>
         {actionKind === "run" ? (
@@ -3270,6 +3378,22 @@ function AdvancedActionStage({
           <button className="tool-button" type="button" disabled={isSubmittingVideo} onClick={onSubmitVideo}>
             <Play size={16} /> {isSubmittingVideo ? "提交中" : "提交视频任务"}
           </button>
+          <label className="file-picker">
+            <Upload size={16} /> {videoUploadLabel}
+            <input
+              aria-label={videoUploadLabel}
+              className="visually-hidden"
+              type="file"
+              accept="video/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onUploadVideo(file);
+                }
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
           <button className="tool-button primary" type="button" disabled={isProcessing} onClick={onProcess}>
             <Scissors size={16} /> {isProcessing ? "处理中" : "一键处理"}
           </button>

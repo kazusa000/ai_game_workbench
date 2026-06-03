@@ -243,4 +243,48 @@ describe("asset routes", () => {
       "fake-video-bytes"
     );
   });
+
+  it("uploads an attack middle frame into the selected character folder", async () => {
+    const app = createApp({
+      storageDir: tempDir,
+      port: 8787
+    });
+    await app.inject({
+      method: "POST",
+      url: "/api/characters",
+      payload: { name: "hero" }
+    });
+    const boundary = "----ai-game-workbench-test";
+    const payload = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="file"; filename="middle.png"',
+      "Content-Type: image/png",
+      "",
+      "fake-middle-bytes",
+      `--${boundary}--`,
+      ""
+    ].join("\r\n");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/assets/first-frame",
+      headers: {
+        "content-type": `multipart/form-data; boundary=${boundary}`,
+        "x-public-asset-base-url": "https://asset-tunnel.example.com",
+        "x-character-id": "hero",
+        "x-character-asset-kind": "advanced-midframe",
+        "x-character-action-kind": "attack-1"
+      },
+      payload
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      localUrl: "/characters/hero/advanced-character/attack-1/midframe/middle-4dir.png",
+      publicUrl: "https://asset-tunnel.example.com/characters/hero/advanced-character/attack-1/midframe/middle-4dir.png"
+    });
+    expect(await readFile(join(tempDir, "characters", "hero", "advanced-character", "attack-1", "midframe", "middle-4dir.png"), "utf8")).toBe(
+      "fake-middle-bytes"
+    );
+  });
 });

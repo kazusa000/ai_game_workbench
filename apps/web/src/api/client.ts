@@ -430,7 +430,7 @@ export interface Module01ReferenceImageAsset {
 export interface UploadAssetOptions {
   publicAssetBaseUrl?: string;
   characterId?: string;
-  characterAssetKind?: "base-template-reference" | "direction-base-template" | "walk-video-input" | "advanced-video-input";
+  characterAssetKind?: "base-template-reference" | "direction-base-template" | "walk-video-input" | "advanced-video-input" | "advanced-midframe";
   actionKind?: AdvancedActionKind;
 }
 

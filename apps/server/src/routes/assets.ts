@@ -285,6 +285,9 @@ function resolveCharacterAssetTarget(kind: string | undefined, actionKind: Advan
   if (actionKind && kind === "advanced-video-input") {
     return { directory: ["advanced-character", actionKind, "video"], stem: "input-4dir" };
   }
+  if (actionKind === "attack-1" && kind === "advanced-midframe") {
+    return { directory: ["advanced-character", actionKind, "midframe"], stem: "middle-4dir" };
+  }
   if (kind === "direction-base-template") {
     return { directory: ["base-character", "direction-templates"], stem: "base-template" };
   }

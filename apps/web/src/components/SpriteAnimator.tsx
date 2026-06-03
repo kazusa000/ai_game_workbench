@@ -17,6 +17,7 @@ import {
   WandSparkles
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import type { ProviderModelCatalog, SavedAnimationKeys } from "@ai-game-workbench/core";
 import {
   createOneClickCharacterJob,
@@ -1927,6 +1928,36 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
   };
 
+  const renderDirectionImageFields = (title: string) => (
+    <ImageDefaultFields
+      title={title}
+      imageModel={directionImageModel}
+      imageGenerationSize={directionImageGenerationSize}
+      imageGenerationSizeOptions={directionImageGenerationSizeOptions}
+      imageModels={imageModels}
+      onChangeImageModel={setDirectionImageModel}
+      onChangeImageGenerationSize={setDirectionImageGenerationSize}
+    />
+  );
+
+  const renderModuleProcessingFields = (title: string) => (
+    <ProcessingDefaultFields
+      title={title}
+      frameCount={frameCount}
+      fps={fps}
+      tolerance={tolerance}
+      minLoopFrames={minLoopFrames}
+      maxLoopFrames={maxLoopFrames}
+      exportFrameSize={exportFrameSize}
+      onChangeFrameCount={setFrameCount}
+      onChangeFps={setFps}
+      onChangeTolerance={setTolerance}
+      onChangeMinLoopFrames={setMinLoopFrames}
+      onChangeMaxLoopFrames={setMaxLoopFrames}
+      onChangeExportFrameSize={setExportFrameSize}
+    />
+  );
+
   return (
     <main className="app-shell workbench-shell">
       <aside className="side-nav">
@@ -2124,41 +2155,57 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                 },
                 {
                   group: "walk",
-                  onSave: handleSaveDirectionTemplateDraft,
+                  onSave: handleSaveVideoDraft,
                   content: (
                     <div className="module01-settings-fields">
-                      <div className="form-grid">
-                        <label className="field">
-                          图像模型
-                          <select aria-label="设置步行图像模型" value={directionImageModel} onChange={(event) => setDirectionImageModel(event.target.value)}>
-                            {imageModels.map((model) => (
-                              <option key={model.id} value={model.id}>{model.label}</option>
-                            ))}
-                          </select>
+                      <SettingsSubsection title="图片设置">
+                        {renderDirectionImageFields("设置步行")}
+                        <div className="prompt-grid">
+                          <label className="field">
+                            步行图片系统提示词
+                            <textarea aria-label="设置步行图片系统提示词" value={directionWalkSystemPrompt} rows={7} onChange={(event) => setDirectionWalkSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            步行图片自定义提示词
+                            <textarea aria-label="设置步行图片自定义提示词" value={directionWalkCustomPrompt} rows={7} onChange={(event) => setDirectionWalkCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          步行图片最终提示词
+                          <textarea aria-label="设置步行图片最终提示词" value={finalDirectionWalkPrompt} rows={5} readOnly />
                         </label>
-                        <label className="field">
-                          图片尺寸
-                          <select aria-label="设置步行图片生成尺寸" value={directionImageGenerationSize} onChange={(event) => setDirectionImageGenerationSize(Number(event.target.value))}>
-                            {directionImageGenerationSizeOptions.map((option) => (
-                              <option key={option.size} value={option.size}>{option.label}</option>
-                            ))}
-                          </select>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="视频设置">
+                        <VideoDefaultFields
+                          title="设置步行"
+                          videoModel={videoModel}
+                          videoDurationSeconds={videoDurationSeconds}
+                          videoResolution={videoResolution}
+                          videoDurationOptions={videoDurationOptions}
+                          videoResolutionOptions={videoResolutionOptions}
+                          videoModels={videoModels}
+                          onChangeVideoModel={handleChangeVideoModel}
+                          onChangeVideoDuration={setVideoDurationSeconds}
+                          onChangeVideoResolution={setVideoResolution}
+                        />
+                        <div className="prompt-grid">
+                          <label className="field">
+                            步行视频系统提示词
+                            <textarea aria-label="设置步行视频系统提示词" value={videoSystemPrompt} rows={7} onChange={(event) => setVideoSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            步行视频自定义提示词
+                            <textarea aria-label="设置步行视频自定义提示词" value={videoCustomPrompt} rows={7} onChange={(event) => setVideoCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          步行视频最终提示词
+                          <textarea aria-label="设置步行视频最终提示词" value={finalVideoPrompt} rows={5} readOnly />
                         </label>
-                      </div>
-                      <div className="prompt-grid">
-                        <label className="field">
-                          步行系统提示词
-                          <textarea aria-label="设置步行系统提示词" value={directionWalkSystemPrompt} rows={7} onChange={(event) => setDirectionWalkSystemPrompt(event.target.value)} />
-                        </label>
-                        <label className="field">
-                          步行自定义提示词
-                          <textarea aria-label="设置步行自定义提示词" value={directionWalkCustomPrompt} rows={7} onChange={(event) => setDirectionWalkCustomPrompt(event.target.value)} />
-                        </label>
-                      </div>
-                      <label className="field prompt-final">
-                        步行最终提示词
-                        <textarea aria-label="设置步行最终提示词" value={finalDirectionWalkPrompt} rows={5} readOnly />
-                      </label>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="处理设置">
+                        {renderModuleProcessingFields("设置步行")}
+                      </SettingsSubsection>
                     </div>
                   )
                 },
@@ -2207,36 +2254,54 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   onSave: handleSaveVideoDraft,
                   content: (
                     <div className="module01-settings-fields">
-                      <VideoDefaultFields
-                        title="设置跑步"
-                        videoModel={videoModel}
-                        videoDurationSeconds={videoDurationSeconds}
-                        videoResolution={videoResolution}
-                        videoDurationOptions={videoDurationOptions}
-                        videoResolutionOptions={videoResolutionOptions}
-                        videoModels={videoModels}
-                        onChangeVideoModel={handleChangeVideoModel}
-                        onChangeVideoDuration={setVideoDurationSeconds}
-                        onChangeVideoResolution={setVideoResolution}
-                      />
-                      <div className="prompt-grid">
-                        <label className="field">
-                          跑步首帧系统提示词
-                          <textarea aria-label="设置跑步首帧系统提示词" value={advancedRunSystemPrompt} rows={7} onChange={(event) => setAdvancedRunSystemPrompt(event.target.value)} />
+                      <SettingsSubsection title="图片设置">
+                        {renderDirectionImageFields("设置跑步首帧")}
+                        <div className="prompt-grid">
+                          <label className="field">
+                            跑步首帧系统提示词
+                            <textarea aria-label="设置跑步首帧系统提示词" value={advancedRunSystemPrompt} rows={7} onChange={(event) => setAdvancedRunSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            跑步首帧自定义提示词
+                            <textarea aria-label="设置跑步首帧自定义提示词" value={advancedRunCustomPrompt} rows={7} onChange={(event) => setAdvancedRunCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          跑步首帧最终提示词
+                          <textarea aria-label="设置跑步首帧最终提示词" value={finalAdvancedRunPrompt} rows={5} readOnly />
                         </label>
-                        <label className="field">
-                          跑步首帧自定义提示词
-                          <textarea aria-label="设置跑步首帧自定义提示词" value={advancedRunCustomPrompt} rows={7} onChange={(event) => setAdvancedRunCustomPrompt(event.target.value)} />
+                      </SettingsSubsection>
+                      <SettingsSubsection title="视频设置">
+                        <VideoDefaultFields
+                          title="设置跑步"
+                          videoModel={videoModel}
+                          videoDurationSeconds={videoDurationSeconds}
+                          videoResolution={videoResolution}
+                          videoDurationOptions={videoDurationOptions}
+                          videoResolutionOptions={videoResolutionOptions}
+                          videoModels={videoModels}
+                          onChangeVideoModel={handleChangeVideoModel}
+                          onChangeVideoDuration={setVideoDurationSeconds}
+                          onChangeVideoResolution={setVideoResolution}
+                        />
+                        <div className="prompt-grid">
+                          <label className="field">
+                            跑步视频系统提示词
+                            <textarea aria-label="设置跑步视频系统提示词" value={advancedRunVideoSystemPrompt} rows={7} onChange={(event) => setAdvancedRunVideoSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            跑步视频自定义提示词
+                            <textarea aria-label="设置跑步视频自定义提示词" value={advancedRunVideoCustomPrompt} rows={7} onChange={(event) => setAdvancedRunVideoCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          跑步视频最终提示词
+                          <textarea aria-label="设置跑步视频最终提示词" value={finalAdvancedRunVideoPrompt} rows={5} readOnly />
                         </label>
-                        <label className="field">
-                          跑步视频系统提示词
-                          <textarea aria-label="设置跑步视频系统提示词" value={advancedRunVideoSystemPrompt} rows={7} onChange={(event) => setAdvancedRunVideoSystemPrompt(event.target.value)} />
-                        </label>
-                        <label className="field">
-                          跑步视频自定义提示词
-                          <textarea aria-label="设置跑步视频自定义提示词" value={advancedRunVideoCustomPrompt} rows={7} onChange={(event) => setAdvancedRunVideoCustomPrompt(event.target.value)} />
-                        </label>
-                      </div>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="处理设置">
+                        {renderModuleProcessingFields("设置跑步")}
+                      </SettingsSubsection>
                     </div>
                   )
                 },
@@ -2245,38 +2310,50 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   onSave: handleSaveVideoDraft,
                   content: (
                     <div className="module01-settings-fields">
-                      <VideoDefaultFields
-                        title="设置攻击 1"
-                        videoModel={videoModel}
-                        videoDurationSeconds={videoDurationSeconds}
-                        videoResolution={videoResolution}
-                        videoDurationOptions={videoDurationOptions}
-                        videoResolutionOptions={videoResolutionOptions}
-                        videoModels={videoModels}
-                        onChangeVideoModel={handleChangeVideoModel}
-                        onChangeVideoDuration={setVideoDurationSeconds}
-                        onChangeVideoResolution={setVideoResolution}
-                      />
-                      <div className="form-grid">
-                        <label className="field">
-                          准备缩放比例
-                          <input aria-label="设置攻击 1 准备缩放比例" type="number" min="0.45" max="0.95" step="0.01" value={advancedAttackStartScale} onChange={(event) => setAdvancedAttackStartScale(normalizeAdvancedStartScale(Number(event.target.value), advancedAttackStartScale))} />
-                        </label>
-                      </div>
-                      <div className="prompt-grid">
-                        <label className="field">
-                          攻击视频系统提示词
-                          <textarea aria-label="设置攻击 1 视频系统提示词" value={advancedAttackSystemPrompt} rows={7} onChange={(event) => setAdvancedAttackSystemPrompt(event.target.value)} />
-                        </label>
-                        <label className="field">
-                          攻击视频自定义提示词
-                          <textarea aria-label="设置攻击 1 视频自定义提示词" value={advancedAttackCustomPrompt} rows={7} onChange={(event) => setAdvancedAttackCustomPrompt(event.target.value)} />
-                        </label>
+                      <SettingsSubsection title="图片设置">
+                        {renderDirectionImageFields("设置攻击 1 中间帧")}
+                        <div className="form-grid">
+                          <label className="field">
+                            准备缩放比例
+                            <input aria-label="设置攻击 1 准备缩放比例" type="number" min="0.45" max="0.95" step="0.01" value={advancedAttackStartScale} onChange={(event) => setAdvancedAttackStartScale(normalizeAdvancedStartScale(Number(event.target.value), advancedAttackStartScale))} />
+                          </label>
+                        </div>
                         <label className="field">
                           攻击中间帧自定义提示词
                           <textarea aria-label="设置攻击 1 中间帧自定义提示词" value={advancedAttackMidframeCustomPrompt} rows={7} onChange={(event) => setAdvancedAttackMidframeCustomPrompt(event.target.value)} />
                         </label>
-                      </div>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="视频设置">
+                        <VideoDefaultFields
+                          title="设置攻击 1 "
+                          videoModel={videoModel}
+                          videoDurationSeconds={videoDurationSeconds}
+                          videoResolution={videoResolution}
+                          videoDurationOptions={videoDurationOptions}
+                          videoResolutionOptions={videoResolutionOptions}
+                          videoModels={videoModels}
+                          onChangeVideoModel={handleChangeVideoModel}
+                          onChangeVideoDuration={setVideoDurationSeconds}
+                          onChangeVideoResolution={setVideoResolution}
+                        />
+                        <div className="prompt-grid">
+                          <label className="field">
+                            攻击视频系统提示词
+                            <textarea aria-label="设置攻击 1 视频系统提示词" value={advancedAttackSystemPrompt} rows={7} onChange={(event) => setAdvancedAttackSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            攻击视频自定义提示词
+                            <textarea aria-label="设置攻击 1 视频自定义提示词" value={advancedAttackCustomPrompt} rows={7} onChange={(event) => setAdvancedAttackCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          攻击视频最终提示词
+                          <textarea aria-label="设置攻击 1 视频最终提示词" value={finalAdvancedAttackPrompt} rows={5} readOnly />
+                        </label>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="处理设置">
+                        {renderModuleProcessingFields("设置攻击 1")}
+                      </SettingsSubsection>
                     </div>
                   )
                 },
@@ -2285,34 +2362,45 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                   onSave: handleSaveVideoDraft,
                   content: (
                     <div className="module01-settings-fields">
-                      <VideoDefaultFields
-                        title="设置跳跃"
-                        videoModel={videoModel}
-                        videoDurationSeconds={videoDurationSeconds}
-                        videoResolution={videoResolution}
-                        videoDurationOptions={videoDurationOptions}
-                        videoResolutionOptions={videoResolutionOptions}
-                        videoModels={videoModels}
-                        onChangeVideoModel={handleChangeVideoModel}
-                        onChangeVideoDuration={setVideoDurationSeconds}
-                        onChangeVideoResolution={setVideoResolution}
-                      />
-                      <div className="form-grid">
-                        <label className="field">
-                          准备缩放比例
-                          <input aria-label="设置跳跃准备缩放比例" type="number" min="0.45" max="0.95" step="0.01" value={advancedJumpStartScale} onChange={(event) => setAdvancedJumpStartScale(normalizeAdvancedStartScale(Number(event.target.value), advancedJumpStartScale))} />
+                      <SettingsSubsection title="图片设置">
+                        <div className="form-grid">
+                          <label className="field">
+                            准备缩放比例
+                            <input aria-label="设置跳跃准备缩放比例" type="number" min="0.45" max="0.95" step="0.01" value={advancedJumpStartScale} onChange={(event) => setAdvancedJumpStartScale(normalizeAdvancedStartScale(Number(event.target.value), advancedJumpStartScale))} />
+                          </label>
+                        </div>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="视频设置">
+                        <VideoDefaultFields
+                          title="设置跳跃"
+                          videoModel={videoModel}
+                          videoDurationSeconds={videoDurationSeconds}
+                          videoResolution={videoResolution}
+                          videoDurationOptions={videoDurationOptions}
+                          videoResolutionOptions={videoResolutionOptions}
+                          videoModels={videoModels}
+                          onChangeVideoModel={handleChangeVideoModel}
+                          onChangeVideoDuration={setVideoDurationSeconds}
+                          onChangeVideoResolution={setVideoResolution}
+                        />
+                        <div className="prompt-grid">
+                          <label className="field">
+                            跳跃视频系统提示词
+                            <textarea aria-label="设置跳跃视频系统提示词" value={advancedJumpSystemPrompt} rows={7} onChange={(event) => setAdvancedJumpSystemPrompt(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            跳跃视频自定义提示词
+                            <textarea aria-label="设置跳跃视频自定义提示词" value={advancedJumpCustomPrompt} rows={7} onChange={(event) => setAdvancedJumpCustomPrompt(event.target.value)} />
+                          </label>
+                        </div>
+                        <label className="field prompt-final">
+                          跳跃视频最终提示词
+                          <textarea aria-label="设置跳跃视频最终提示词" value={finalAdvancedJumpPrompt} rows={5} readOnly />
                         </label>
-                      </div>
-                      <div className="prompt-grid">
-                        <label className="field">
-                          跳跃视频系统提示词
-                          <textarea aria-label="设置跳跃视频系统提示词" value={advancedJumpSystemPrompt} rows={7} onChange={(event) => setAdvancedJumpSystemPrompt(event.target.value)} />
-                        </label>
-                        <label className="field">
-                          跳跃视频自定义提示词
-                          <textarea aria-label="设置跳跃视频自定义提示词" value={advancedJumpCustomPrompt} rows={7} onChange={(event) => setAdvancedJumpCustomPrompt(event.target.value)} />
-                        </label>
-                      </div>
+                      </SettingsSubsection>
+                      <SettingsSubsection title="处理设置">
+                        {renderModuleProcessingFields("设置跳跃")}
+                      </SettingsSubsection>
                     </div>
                   )
                 },
@@ -3177,6 +3265,113 @@ function WorkflowStage({
       <div className="stage-controls">{controls}</div>
       {footer ? <div className="stage-footer">{footer}</div> : null}
     </section>
+  );
+}
+
+function SettingsSubsection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="module01-settings-subsection">
+      <h4>{title}</h4>
+      {children}
+    </section>
+  );
+}
+
+function ImageDefaultFields({
+  title,
+  imageModel,
+  imageGenerationSize,
+  imageGenerationSizeOptions,
+  imageModels,
+  onChangeImageModel,
+  onChangeImageGenerationSize
+}: {
+  title: string;
+  imageModel: string;
+  imageGenerationSize: number;
+  imageGenerationSizeOptions: readonly ImageGenerationSizeOption[];
+  imageModels: readonly ImageModelOption[];
+  onChangeImageModel: (model: string) => void;
+  onChangeImageGenerationSize: (size: number) => void;
+}) {
+  return (
+    <div className="form-grid">
+      <label className="field">
+        图像模型
+        <select aria-label={`${title}图像模型`} value={imageModel} onChange={(event) => onChangeImageModel(event.target.value)}>
+          {imageModels.map((model) => (
+            <option key={model.id} value={model.id}>{model.label}</option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        图片尺寸
+        <select aria-label={`${title}图片尺寸`} value={imageGenerationSize} onChange={(event) => onChangeImageGenerationSize(Number(event.target.value))}>
+          {imageGenerationSizeOptions.map((option) => (
+            <option key={option.size} value={option.size}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function ProcessingDefaultFields({
+  title,
+  frameCount,
+  fps,
+  tolerance,
+  minLoopFrames,
+  maxLoopFrames,
+  exportFrameSize,
+  onChangeFrameCount,
+  onChangeFps,
+  onChangeTolerance,
+  onChangeMinLoopFrames,
+  onChangeMaxLoopFrames,
+  onChangeExportFrameSize
+}: {
+  title: string;
+  frameCount: number;
+  fps: number;
+  tolerance: number;
+  minLoopFrames: number;
+  maxLoopFrames: number;
+  exportFrameSize: number;
+  onChangeFrameCount: (value: number) => void;
+  onChangeFps: (value: number) => void;
+  onChangeTolerance: (value: number) => void;
+  onChangeMinLoopFrames: (value: number) => void;
+  onChangeMaxLoopFrames: (value: number) => void;
+  onChangeExportFrameSize: (value: number) => void;
+}) {
+  return (
+    <div className="form-grid">
+      <label className="field">
+        抽帧数量
+        <input aria-label={`${title}抽帧数量`} type="number" min={1} max={120} value={frameCount} onChange={(event) => onChangeFrameCount(clamp(Number(event.target.value), 1, 120))} />
+      </label>
+      <label className="field">
+        预览 FPS
+        <input aria-label={`${title}预览 FPS`} type="number" min={1} max={FPS_MAX} value={fps} onChange={(event) => onChangeFps(clamp(Number(event.target.value), 1, FPS_MAX))} />
+      </label>
+      <label className="field">
+        抠图容差
+        <input aria-label={`${title}抠图容差`} type="number" min={0} max={255} value={tolerance} onChange={(event) => onChangeTolerance(clamp(Number(event.target.value), 0, 255))} />
+      </label>
+      <label className="field">
+        最小循环帧数
+        <input aria-label={`${title}最小循环帧数`} type="number" min={2} max={120} value={minLoopFrames} onChange={(event) => onChangeMinLoopFrames(clamp(Number(event.target.value), 2, 120))} />
+      </label>
+      <label className="field">
+        最大循环帧数
+        <input aria-label={`${title}最大循环帧数`} type="number" min={2} max={120} value={maxLoopFrames} onChange={(event) => onChangeMaxLoopFrames(clamp(Number(event.target.value), 2, 120))} />
+      </label>
+      <label className="field">
+        导出单帧尺寸
+        <input aria-label={`${title}导出单帧尺寸`} type="number" min={64} max={1024} value={exportFrameSize} onChange={(event) => onChangeExportFrameSize(clamp(Number(event.target.value), 64, 1024))} />
+      </label>
+    </div>
   );
 }
 

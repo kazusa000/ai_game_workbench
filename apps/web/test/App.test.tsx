@@ -1269,6 +1269,13 @@ describe("App", () => {
       "src",
       "http://127.0.0.1:8787/direction-references/run-4dir.png"
     );
+    expect(screen.getByRole("heading", { name: "图片设置" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "视频设置" })).toBeInTheDocument();
+    expect(screen.getByLabelText("设置跑步首帧图像模型")).toHaveValue(APIMART_IMAGE_MODEL);
+    expect(screen.getByLabelText("设置跑步首帧图片尺寸")).toHaveValue("1024");
+    expect((screen.getByLabelText("设置跑步视频模型") as HTMLSelectElement).value).toContain("seedance-2.0");
+    expect(screen.getByLabelText("设置跑步首帧系统提示词")).toBeInTheDocument();
+    expect(screen.getByLabelText("设置跑步视频系统提示词")).toBeInTheDocument();
     expect(screen.getByLabelText("上传并覆盖跑步参考图")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /恢复默认/ })).not.toBeInTheDocument();
 
@@ -1282,6 +1289,15 @@ describe("App", () => {
       method: "POST"
     });
     expect(uploadCall?.[1]?.headers).toBeUndefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "步行设置" }));
+    expect(screen.getByLabelText("设置步行图像模型")).toHaveValue(APIMART_IMAGE_MODEL);
+    expect((screen.getByLabelText("设置步行视频模型") as HTMLSelectElement).value).toContain("seedance-2.0");
+    expect(screen.getByLabelText("设置步行视频系统提示词")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "攻击 1 设置" }));
+    expect(screen.getByLabelText("设置攻击 1 中间帧图像模型")).toHaveValue(APIMART_IMAGE_MODEL);
+    expect((screen.getByLabelText("设置攻击 1 视频模型") as HTMLSelectElement).value).toContain("seedance-2.0");
   });
 
   it("opens each base character generation subpage from the left navigation", () => {

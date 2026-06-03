@@ -278,6 +278,21 @@ h2 {
   margin: 0;
 }
 
+.module01-settings-subsection {
+  border: 1px solid #303947;
+  border-radius: 8px;
+  background: #10151d;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.module01-settings-subsection h4 {
+  margin: 0;
+  color: #f6c453;
+  font-size: 18px;
+}
+
 .module01-settings-references {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

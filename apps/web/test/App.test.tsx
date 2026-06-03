@@ -721,8 +721,10 @@ describe("App", () => {
     expect(await screen.findByLabelText("当前像素角色")).toHaveValue("pixel-hero");
     expect(screen.getByRole("button", { name: "角色基准模板" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "四方向步行图" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "切帧" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "一键处理" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "角色预览" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "模块设置" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "切帧" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "删除像素角色 pixel-hero" }));
 
@@ -755,8 +757,8 @@ describe("App", () => {
       && String((init as RequestInit).body).includes('"actionId":"walk"')
     )).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "切帧" }));
-    fireEvent.click(screen.getByRole("button", { name: "一键处理切帧" }));
+    fireEvent.click(screen.getByRole("button", { name: "一键处理" }));
+    fireEvent.click(screen.getByRole("button", { name: "执行一键处理" }));
 
     await waitFor(() => {
       const processingCalls = fetchMock.mock.calls
@@ -775,6 +777,112 @@ describe("App", () => {
         })
       ]));
     });
+  });
+
+  it("saves module 02 settings by category and uses them in generation and processing", async () => {
+    openPixelSpriteGenerator();
+
+    expect(await screen.findByLabelText("当前像素角色")).toHaveValue("pixel-hero");
+    expect(screen.queryByLabelText("像素图像模型")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("公网资源地址")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
+    expect(screen.getByRole("heading", { name: "模块设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "基准模板设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "步行图设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "一键处理设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "角色预览设置" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("设置基准模板图像模型"), {
+      target: { value: "local/gpt-image-2" }
+    });
+    fireEvent.change(screen.getByLabelText("设置基准模板背景键色"), {
+      target: { value: "#112233" }
+    });
+    fireEvent.change(screen.getByLabelText("设置基准模板提示词"), {
+      target: { value: "base prompt from settings" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存基准模板设置" }));
+    expect(screen.getByText("基准模板设置已保存。")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "角色基准模板" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成角色基准模板" }));
+    await waitFor(() => {
+      const generationCall = fetchMock.mock.calls
+        .filter(([url]) => String(url).endsWith("/api/module02/generation/sprite-sheet"))
+        .map(([, init]) => JSON.parse(String((init as RequestInit).body)))
+        .find((body) => body.actionId === "idle");
+      expect(generationCall).toMatchObject({
+        model: "local/gpt-image-2",
+        customPrompt: "base prompt from settings",
+        keyColor: "#112233"
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "步行图设置" }));
+    fireEvent.change(screen.getByLabelText("设置步行图提示词"), {
+      target: { value: "walk prompt from settings" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存步行图设置" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "四方向步行图" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成四方向步行图" }));
+    await waitFor(() => {
+      const generationCall = fetchMock.mock.calls
+        .filter(([url]) => String(url).endsWith("/api/module02/generation/sprite-sheet"))
+        .map(([, init]) => JSON.parse(String((init as RequestInit).body)))
+        .find((body) => body.actionId === "walk");
+      expect(generationCall).toMatchObject({
+        customPrompt: "walk prompt from settings",
+        keyColor: "#112233"
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "一键处理设置" }));
+    fireEvent.change(screen.getByLabelText("设置一键处理键色容差"), {
+      target: { value: "12" }
+    });
+    fireEvent.change(screen.getByLabelText("设置一键处理输出帧宽"), {
+      target: { value: "96" }
+    });
+    fireEvent.change(screen.getByLabelText("设置一键处理输出帧高"), {
+      target: { value: "144" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存一键处理设置" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "一键处理" }));
+    fireEvent.click(screen.getByRole("button", { name: "执行一键处理" }));
+    await waitFor(() => {
+      const processingCall = fetchMock.mock.calls
+        .filter(([url]) => String(url).endsWith("/api/module02/processing/sprite-sheet"))
+        .map(([, init]) => JSON.parse(String((init as RequestInit).body)))
+        .find((body) => body.sliceKind === "walk");
+      expect(processingCall).toMatchObject({
+        tolerance: 12,
+        outputFrameWidth: 96,
+        outputFrameHeight: 144
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "角色预览设置" }));
+    fireEvent.change(screen.getByLabelText("设置角色预览 idle FPS"), {
+      target: { value: "6" }
+    });
+    fireEvent.change(screen.getByLabelText("设置角色预览 walk FPS"), {
+      target: { value: "10" }
+    });
+    fireEvent.change(screen.getByLabelText("设置角色预览显示尺寸"), {
+      target: { value: "224" }
+    });
+    fireEvent.click(screen.getByLabelText("设置角色预览显示中心线"));
+    fireEvent.click(screen.getByRole("button", { name: "保存角色预览设置" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "角色预览" }));
+    expect(screen.getAllByText("idle").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("walk").length).toBeGreaterThan(0);
   });
 
   it("opens module 01 with two-level navigation and the base template page", () => {

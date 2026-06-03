@@ -642,6 +642,10 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
               status={baseStatus}
               mediaPanes={[
                 {
+                  title: "角色参考图",
+                  content: <ImagePreview alt="角色参考图预览" preview={characterReferencePreview} emptyLabel="等待角色参考图" />
+                },
+                {
                   title: "角色基准模板",
                   content: <ImagePreview alt="角色基准模板预览" preview={baseTemplatePreview} emptyLabel="等待角色基准模板" />
                 }
@@ -649,6 +653,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
               controls={(
                 <>
                   <div className="control-row">
+                    <FileButton label="上传角色参考图" onFile={(file) => void handleUploadAsset("character-reference", file)} />
                     <FileButton label="上传角色基准模板" onFile={(file) => void handleUploadAsset("base-template", file)} />
                     <button className="tool-button primary" type="button" disabled={isGeneratingBase} onClick={() => void handleGenerateBaseTemplate()}>
                       <WandSparkles size={16} /> {isGeneratingBase ? "生成中" : "生成角色基准模板"}
@@ -710,7 +715,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
           {activePage === "module-settings" ? (
             <PixelModuleSettings
               activeGroup={activeSettingsGroup}
-              characterReferencePreview={characterReferencePreview}
               draft={settingsDraft}
               idleActionReferencePreview={actionReferencePreview(idleAction)}
               imageModels={imageModels}
@@ -719,7 +723,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
               onChangeDraft={updateSettingsDraft}
               onChangeGroup={setActiveSettingsGroup}
               onSave={handleSaveSettings}
-              onUploadCharacterReference={(file) => void handleUploadAsset("character-reference", file)}
             />
           ) : null}
 
@@ -817,7 +820,6 @@ function NavButton({
 
 function PixelModuleSettings({
   activeGroup,
-  characterReferencePreview,
   draft,
   idleActionReferencePreview,
   imageModels,
@@ -825,11 +827,9 @@ function PixelModuleSettings({
   walkActionReferencePreview,
   onChangeDraft,
   onChangeGroup,
-  onSave,
-  onUploadCharacterReference
+  onSave
 }: {
   activeGroup: PixelSettingsGroup;
-  characterReferencePreview: MediaPreview | null;
   draft: PixelSpriteDraft;
   idleActionReferencePreview: MediaPreview | null;
   imageModels: readonly { id: string; label: string }[];
@@ -838,7 +838,6 @@ function PixelModuleSettings({
   onChangeDraft: <Key extends keyof PixelSpriteDraft>(key: Key, value: PixelSpriteDraft[Key]) => void;
   onChangeGroup: (group: PixelSettingsGroup) => void;
   onSave: () => void;
-  onUploadCharacterReference: (file: File | undefined) => void;
 }) {
   const group = SETTINGS_GROUPS.find((item) => item.id === activeGroup) ?? DEFAULT_SETTINGS_GROUP;
   return (
@@ -868,16 +867,9 @@ function PixelModuleSettings({
                 <SettingsSubsection title="参考图设置">
                   <div className="stage-media-grid">
                     <div className="media-pane">
-                      <div className="media-pane-title">角色参考图</div>
-                      <ImagePreview alt="角色参考图预览" preview={characterReferencePreview} emptyLabel="等待角色参考图" />
-                    </div>
-                    <div className="media-pane">
                       <div className="media-pane-title">idle 动作参考</div>
                       <ImagePreview alt="idle 动作参考图预览" preview={idleActionReferencePreview} emptyLabel="等待 idle 动作参考" />
                     </div>
-                  </div>
-                  <div className="control-row">
-                    <FileButton label="上传角色参考图" onFile={onUploadCharacterReference} />
                   </div>
                 </SettingsSubsection>
                 <SettingsSubsection title="图片设置">

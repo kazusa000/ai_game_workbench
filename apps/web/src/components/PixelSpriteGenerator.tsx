@@ -140,7 +140,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
   const [activeSettingsGroup, setActiveSettingsGroup] = useState<PixelSettingsGroup>("base-template");
   const [providerModelCatalog, setProviderModelCatalog] = useState<ProviderModelCatalog | null>(null);
   const [userApiProviderSettings, setUserApiProviderSettings] = useState(() => loadUserApiProviderSettings());
-  const [baseStatus, setBaseStatus] = useState("选择或创建像素角色后，上传参考图并生成基准模板。");
+  const [baseStatus, setBaseStatus] = useState("选择或创建像素角色后，生成或上传基准模板。");
   const [walkStatus, setWalkStatus] = useState("先生成角色基准模板，再生成四方向步行图。");
   const [sliceStatus, setSliceStatus] = useState("切帧会写入当前像素角色的 slices/idle 与 slices/walk。");
   const [previewStatus, setPreviewStatus] = useState("");
@@ -642,14 +642,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
               status={baseStatus}
               mediaPanes={[
                 {
-                  title: "角色参考图",
-                  content: <ImagePreview alt="角色参考图预览" preview={characterReferencePreview} emptyLabel="等待角色参考图" />
-                },
-                {
-                  title: "idle 动作参考",
-                  content: <ImagePreview alt="idle 动作参考图预览" preview={actionReferencePreview(idleAction)} emptyLabel="等待 idle 动作参考" />
-                },
-                {
                   title: "角色基准模板",
                   content: <ImagePreview alt="角色基准模板预览" preview={baseTemplatePreview} emptyLabel="等待角色基准模板" />
                 }
@@ -657,7 +649,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
               controls={(
                 <>
                   <div className="control-row">
-                    <FileButton label="上传角色参考图" onFile={(file) => void handleUploadAsset("character-reference", file)} />
                     <FileButton label="上传角色基准模板" onFile={(file) => void handleUploadAsset("base-template", file)} />
                     <button className="tool-button primary" type="button" disabled={isGeneratingBase} onClick={() => void handleGenerateBaseTemplate()}>
                       <WandSparkles size={16} /> {isGeneratingBase ? "生成中" : "生成角色基准模板"}
@@ -676,10 +667,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
                 {
                   title: "角色基准模板",
                   content: <ImagePreview alt="步行图输入基准模板预览" preview={baseTemplatePreview} emptyLabel="等待角色基准模板" />
-                },
-                {
-                  title: "walk 动作参考",
-                  content: <ImagePreview alt="walk 动作参考图预览" preview={actionReferencePreview(walkAction)} emptyLabel="等待 walk 动作参考" />
                 },
                 {
                   title: "四方向步行图",
@@ -723,12 +710,16 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
           {activePage === "module-settings" ? (
             <PixelModuleSettings
               activeGroup={activeSettingsGroup}
+              characterReferencePreview={characterReferencePreview}
               draft={settingsDraft}
+              idleActionReferencePreview={actionReferencePreview(idleAction)}
               imageModels={imageModels}
               status={settingsStatus}
+              walkActionReferencePreview={actionReferencePreview(walkAction)}
               onChangeDraft={updateSettingsDraft}
               onChangeGroup={setActiveSettingsGroup}
               onSave={handleSaveSettings}
+              onUploadCharacterReference={(file) => void handleUploadAsset("character-reference", file)}
             />
           ) : null}
 
@@ -826,20 +817,28 @@ function NavButton({
 
 function PixelModuleSettings({
   activeGroup,
+  characterReferencePreview,
   draft,
+  idleActionReferencePreview,
   imageModels,
   status,
+  walkActionReferencePreview,
   onChangeDraft,
   onChangeGroup,
-  onSave
+  onSave,
+  onUploadCharacterReference
 }: {
   activeGroup: PixelSettingsGroup;
+  characterReferencePreview: MediaPreview | null;
   draft: PixelSpriteDraft;
+  idleActionReferencePreview: MediaPreview | null;
   imageModels: readonly { id: string; label: string }[];
   status: string;
+  walkActionReferencePreview: MediaPreview | null;
   onChangeDraft: <Key extends keyof PixelSpriteDraft>(key: Key, value: PixelSpriteDraft[Key]) => void;
   onChangeGroup: (group: PixelSettingsGroup) => void;
   onSave: () => void;
+  onUploadCharacterReference: (file: File | undefined) => void;
 }) {
   const group = SETTINGS_GROUPS.find((item) => item.id === activeGroup) ?? DEFAULT_SETTINGS_GROUP;
   return (
@@ -866,6 +865,21 @@ function PixelModuleSettings({
           <div className="module01-settings-fields">
             {activeGroup === "base-template" ? (
               <>
+                <SettingsSubsection title="参考图设置">
+                  <div className="stage-media-grid">
+                    <div className="media-pane">
+                      <div className="media-pane-title">角色参考图</div>
+                      <ImagePreview alt="角色参考图预览" preview={characterReferencePreview} emptyLabel="等待角色参考图" />
+                    </div>
+                    <div className="media-pane">
+                      <div className="media-pane-title">idle 动作参考</div>
+                      <ImagePreview alt="idle 动作参考图预览" preview={idleActionReferencePreview} emptyLabel="等待 idle 动作参考" />
+                    </div>
+                  </div>
+                  <div className="control-row">
+                    <FileButton label="上传角色参考图" onFile={onUploadCharacterReference} />
+                  </div>
+                </SettingsSubsection>
                 <SettingsSubsection title="图片设置">
                   <div className="form-grid">
                     <label className="field">
@@ -901,6 +915,14 @@ function PixelModuleSettings({
 
             {activeGroup === "walk-template" ? (
               <>
+                <SettingsSubsection title="参考图设置">
+                  <div className="stage-media-grid">
+                    <div className="media-pane">
+                      <div className="media-pane-title">walk 动作参考</div>
+                      <ImagePreview alt="walk 动作参考图预览" preview={walkActionReferencePreview} emptyLabel="等待 walk 动作参考" />
+                    </div>
+                  </div>
+                </SettingsSubsection>
                 <SettingsSubsection title="图片设置">
                   <div className="form-grid">
                     <label className="field">

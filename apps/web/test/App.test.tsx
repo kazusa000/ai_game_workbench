@@ -741,10 +741,13 @@ describe("App", () => {
   it("uses module 02 APIs for base generation, walk generation, and one-click slicing", async () => {
     openPixelSpriteGenerator();
 
-    expect(await screen.findByAltText("角色参考图预览")).toHaveAttribute(
+    expect(await screen.findByAltText("角色基准模板预览")).toHaveAttribute(
       "src",
-      expect.stringContaining(`${pixelCharacterBase}/base-template/character-reference.png`)
+      expect.stringContaining(`${pixelCharacterBase}/base-template/output.png`)
     );
+    expect(screen.queryByAltText("角色参考图预览")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("上传角色参考图")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("idle 动作参考图预览")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "生成角色基准模板" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) =>
@@ -753,6 +756,7 @@ describe("App", () => {
     )).toBe(true));
 
     fireEvent.click(screen.getByRole("button", { name: "步行" }));
+    expect(screen.queryByAltText("walk 动作参考图预览")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "生成四方向步行图" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) =>
       String(url).endsWith("/api/module02/generation/sprite-sheet")
@@ -794,6 +798,12 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "步行图设置" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "一键处理设置" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "角色预览设置" })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传角色参考图")).toBeInTheDocument();
+    expect(screen.getByAltText("角色参考图预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${pixelCharacterBase}/base-template/character-reference.png`)
+    );
+    expect(screen.getByAltText("idle 动作参考图预览")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("设置基准模板图像模型"), {
       target: { value: "local/gpt-image-2" }
@@ -823,6 +833,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
     fireEvent.click(screen.getByRole("button", { name: "步行设置" }));
+    expect(screen.getByAltText("walk 动作参考图预览")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("设置步行图提示词"), {
       target: { value: "walk prompt from settings" }
     });

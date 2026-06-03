@@ -36,6 +36,7 @@ describe("provider settings routes", () => {
     expect(response.json().imageModels.map((model: { id: string }) => model.id)).toEqual([
       "local/gpt-image-2",
       "google/gemini-3.1-flash-image-preview",
+      "openrouter/gpt-image-2",
       "apimart/gpt-image-2",
       "apimart/nano-banana-2"
     ]);
@@ -52,7 +53,14 @@ describe("provider settings routes", () => {
         expect.objectContaining({
           id: "apimart/gpt-image-2",
           providerId: "apimart",
-          upstreamModel: "gpt-image-2"
+          upstreamModel: "gpt-image-2",
+          label: "GPT-Image-2"
+        }),
+        expect.objectContaining({
+          id: "openrouter/gpt-image-2",
+          providerId: "openrouter",
+          upstreamModel: "openai/gpt-image-2",
+          label: "GPT-Image-2"
         })
       ])
     });

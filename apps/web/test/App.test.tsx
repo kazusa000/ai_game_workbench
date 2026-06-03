@@ -501,7 +501,7 @@ function makeProviderModelCatalog() {
       id: APIMART_IMAGE_MODEL,
       providerId: "apimart",
       upstreamModel: "gpt-image-2",
-      label: "APIMart GPT-Image-2",
+      label: "GPT-Image-2",
       capability: "image",
       enabled: true,
       imageSizeOptions: [
@@ -539,6 +539,20 @@ function makeProviderModelCatalog() {
         { size: 4096, label: "4096 x 4096 (4K)" }
       ],
       defaultImageSize: 1024
+    },
+    {
+      id: "openrouter/gpt-image-2",
+      providerId: "openrouter",
+      upstreamModel: "openai/gpt-image-2",
+      label: "GPT-Image-2",
+      capability: "image",
+      enabled: true,
+      imageSizeOptions: [
+        { size: 1024, label: "1024 x 1024 (1K)" },
+        { size: 2048, label: "2048 x 2048 (2K)" },
+        { size: 2880, label: "2880 x 2880 (4K)" }
+      ],
+      defaultImageSize: 1024
     }
   ];
   const videoModels = [
@@ -558,7 +572,7 @@ function makeProviderModelCatalog() {
       id: "apimart/seedance-2.0",
       providerId: "apimart",
       upstreamModel: "doubao-seedance-2.0",
-      label: "APIMart Seedance 2.0",
+      label: "Seedance 2.0",
       capability: "video",
       enabled: true,
       durationOptions: [4, 5, 6],

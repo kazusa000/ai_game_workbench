@@ -459,27 +459,6 @@ h2 {
   flex: 1 1 240px;
 }
 
-.fixed-url-field {
-  flex: 1 1 280px;
-  min-height: 58px;
-  border: 1px solid #465166;
-  border-radius: 6px;
-  background: #0f141c;
-  color: #c7d0dd;
-  padding: 8px 10px;
-  display: grid;
-  gap: 5px;
-  align-content: center;
-  font-size: 13px;
-}
-
-.fixed-url-field code {
-  color: #68e1fd;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .api-key-field input,
 .field input,
 .field textarea,

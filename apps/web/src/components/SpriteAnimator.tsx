@@ -2054,16 +2054,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
             <p className="eyebrow">模块 01 / {MODULE01_PAGE_LABELS[activePage]}</p>
             <h1>高清2D角色制作</h1>
           </div>
-          <div className="toolbar">
-            <div className="fixed-url-field" aria-label="固定公网资源地址">
-              <span>固定公网资源地址</span>
-              <code>{FIXED_PUBLIC_ASSET_BASE_URL}</code>
-            </div>
-            <div className="fixed-url-field" aria-label="API provider settings">
-              <span>API providers</span>
-              <code>Global settings</code>
-            </div>
-          </div>
         </header>
 
         <div className="workflow-stack">
@@ -2869,9 +2859,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                     <Save size={16} /> 保存视频配置
                   </button>
                 </Module01AdvancedDetails>
-                <Module01AdvancedDetails title="步行预览与导出">
-                  <FourDirectionResultPanel result={fourDirectionResult} frameIndex={activeFrameIndex} isPlaying={isPlayingFrames} />
-                </Module01AdvancedDetails>
               </Module01ActionSection>
             </Module01PageStage>
           ) : null}
@@ -2963,19 +2950,6 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                       抠图容差
                       <input aria-label="抠图容差" type="number" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(clamp(Number(event.target.value), 0, 255))} />
                     </label>
-                  </div>
-                </Module01AdvancedDetails>
-                <Module01AdvancedDetails title="待机预览与导出">
-                  <Module01MediaGrid>
-                    <MediaPane title="待机 Sprite Sheet">
-                      <IdleSpriteSheetPreview idle={fourDirectionResult?.idle} />
-                    </MediaPane>
-                    <MediaPane title="待机方向预览">
-                      <IdleDirectionPreviewGrid idle={fourDirectionResult?.idle} />
-                    </MediaPane>
-                  </Module01MediaGrid>
-                  <div className="control-row">
-                    <DownloadLink href={fourDirectionResult?.idle?.spriteSheetUrl} label="导出待机 Sprite Sheet" />
                   </div>
                 </Module01AdvancedDetails>
               </Module01ActionSection>
@@ -3766,9 +3740,6 @@ function AdvancedActionStage({
             </details>
           ) : null}
         </Module01AdvancedDetails>
-        <Module01AdvancedDetails title={sectionTitle("导出")}>
-          <FourDirectionResultPanel result={result ?? null} frameIndex={0} isPlaying={false} />
-        </Module01AdvancedDetails>
       </Module01ActionSection>
     </Module01PageStage>
   );
@@ -3844,92 +3815,6 @@ function DirectionPreviewGrid({
           </section>
         );
       })}
-    </div>
-  );
-}
-
-function IdleSpriteSheetPreview({ idle }: { idle: ProcessFourDirectionResult["idle"] | undefined }) {
-  if (!idle?.spriteSheetUrl) {
-    return <EmptyMedia label="等待待机处理" />;
-  }
-  return <img alt="待机预览" src={idle.spriteSheetUrl} />;
-}
-
-function IdleDirectionPreviewGrid({ idle }: { idle: ProcessFourDirectionResult["idle"] | undefined }) {
-  if (!idle?.frames.length) {
-    return <EmptyPanel label="等待待机处理结果" />;
-  }
-  return (
-    <div className="direction-preview-grid">
-      {idle.frames.map((frame) => (
-        <section className="direction-preview-card" key={frame.key}>
-          <div className="direction-preview-title">
-            <strong>{frame.label}</strong>
-            <span>待机</span>
-          </div>
-          <div className="direction-preview-image">
-            <img alt={`${frame.label}待机预览`} src={frame.url} />
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function FourDirectionResultPanel({
-  result,
-  frameIndex,
-  isPlaying
-}: {
-  result: ProcessFourDirectionResult | null;
-  frameIndex: number;
-  isPlaying: boolean;
-}) {
-  return (
-    <div className="loop-result-stack">
-      <div className="loop-preview-duo">
-        <section className="loop-result-section">
-          <div className="loop-section-heading">
-            <h3>最终循环预览</h3>
-            <span>{result ? `${result.directions.length} 个方向 · ${isPlaying ? "播放中" : "已停止"}` : "等待抠图预览"}</span>
-          </div>
-          {result ? (
-            <DirectionPreviewGrid
-              directions={result.directions}
-              frameIndex={frameIndex}
-              frameSelector={(direction) => direction.transparentFrames}
-              imageAltSuffix="最终循环预览"
-              showLoopInfo
-            />
-          ) : <EmptyPanel label="等待一键处理结果" />}
-        </section>
-        <section className="loop-result-section">
-          <div className="loop-section-heading">
-            <h3>待机预览</h3>
-            <span>{result?.idle ? "已拆解、抠图并按走路比例缩放" : "等待待机处理"}</span>
-          </div>
-          <IdleDirectionPreviewGrid idle={result?.idle} />
-        </section>
-      </div>
-      <section className="loop-result-section">
-        <div className="loop-section-heading">
-          <h3>最终导出</h3>
-          <span>透明帧 / 走路 Sprite Sheet / 待机 Sprite Sheet / GIF</span>
-        </div>
-        <div className="export-grid">
-          <div className="sprite-sheet-preview">
-            {result?.spriteSheetUrl ? (
-              <img alt="Sprite Sheet 预览" src={toAbsoluteApiUrl(result.spriteSheetUrl)} />
-            ) : <EmptyMedia label="等待 Sprite Sheet" />}
-          </div>
-          <div className="export-actions">
-            <DownloadLink href={result?.transparentZipUrl} label="导出透明帧 ZIP" />
-            <DownloadLink href={result?.spriteSheetUrl} label="导出走路 Sprite Sheet" />
-            <DownloadLink href={result?.idle?.spriteSheetUrl} label="导出待机 Sprite Sheet" />
-            <DownloadLink href={result?.gifPreviewUrl} label="导出 GIF" />
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

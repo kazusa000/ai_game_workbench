@@ -971,7 +971,9 @@ describe("App", () => {
     expect(screen.queryByLabelText(/图片风格提示词/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/图片约束提示词/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("朝向")).not.toBeInTheDocument();
-    expect(screen.getByText("https://darn-skittle-unwoven.ngrok-free.dev")).toBeInTheDocument();
+    expect(screen.queryByText("https://darn-skittle-unwoven.ngrok-free.dev")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("固定公网资源地址")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("API provider settings")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /公网资源地址/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /保存当前配置/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /保存基准模板配置/i })).toBeInTheDocument();
@@ -985,28 +987,28 @@ describe("App", () => {
     expect(screen.getByRole("region", { name: "步行图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "步行视频与一键处理" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "步行结果" })).not.toBeInTheDocument();
-    expect(screen.getByText("步行预览与导出")).toBeInTheDocument();
+    expect(screen.queryByText("步行预览与导出")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "跑步" }));
     expect(screen.getByRole("heading", { name: "跑步" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跑步图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跑步视频与一键处理" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "跑步结果" })).not.toBeInTheDocument();
-    expect(screen.getByText("跑步导出")).toBeInTheDocument();
+    expect(screen.queryByText("跑步导出")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "攻击 1" }));
     expect(screen.getByRole("heading", { name: "攻击 1" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "攻击 1 图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "攻击 1 视频与一键处理" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "攻击 1 结果" })).not.toBeInTheDocument();
-    expect(screen.getByText("攻击 1 导出")).toBeInTheDocument();
+    expect(screen.queryByText("攻击 1 导出")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "跳跃" }));
     expect(screen.getByRole("heading", { name: "跳跃" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跳跃图片" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "跳跃视频与一键处理" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "跳跃结果" })).not.toBeInTheDocument();
-    expect(screen.getByText("跳跃导出")).toBeInTheDocument();
+    expect(screen.queryByText("跳跃导出")).not.toBeInTheDocument();
   });
 
   it("keeps one-click generation focused on launch and progress", () => {
@@ -1074,20 +1076,15 @@ describe("App", () => {
       "src",
       expect.stringContaining(`${characterBase}/base-character/walk-video/source.mp4`)
     );
-    expect(screen.getByAltText("下方向最终循环预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/transparent/down/frame_002.png`)
-    );
+    expect(screen.queryByAltText("下方向最终循环预览")).not.toBeInTheDocument();
+    expect(screen.queryByText("最终循环预览")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "待机" }));
     expect(screen.getByAltText("待机 2x2 输出预览")).toHaveAttribute(
       "src",
       expect.stringContaining(`${characterBase}/base-character/direction-templates/idle-4dir.png`)
     );
-    expect(screen.getByAltText("待机预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
-    );
+    expect(screen.queryByAltText("待机预览")).not.toBeInTheDocument();
   });
 
   it("opens character preview with shared map settings below the stage", () => {
@@ -1479,7 +1476,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /一键处理/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /保存待机配置/i })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "待机结果" })).not.toBeInTheDocument();
-    expect(screen.getByText("待机预览与导出")).toBeInTheDocument();
+    expect(screen.queryByText("待机预览与导出")).not.toBeInTheDocument();
   });
 
   it("migrates an unavailable image default to APIMart without restoring browser keys", () => {
@@ -1718,7 +1715,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /一键处理/i }));
     await screen.findByText(/步行处理完成/);
-    expect(screen.getByText("最终循环预览")).toBeInTheDocument();
+    expect(screen.queryByText("最终循环预览")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("帧时间轴")).not.toBeInTheDocument();
 
     const videoCall = fetchMock.mock.calls.find(([url, init]) =>
@@ -1828,21 +1825,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /一键处理/i }));
 
     await screen.findByText(/步行处理完成/);
-    expect(screen.getByAltText("下方向最终循环预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/transparent/down/frame_002.png`)
-    );
-    expect(screen.getByText("最终循环预览")).toBeInTheDocument();
-    expect(screen.getAllByText("下方向").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("上方向").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("左方向").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("右方向").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /导出走路 Sprite Sheet/i })).toHaveAttribute(
-      "href",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/sprite-sheet.png`)
-    );
-    expect(screen.getByRole("link", { name: /导出透明帧 ZIP/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /导出 GIF/i })).toBeInTheDocument();
+    expect(screen.queryByAltText("下方向最终循环预览")).not.toBeInTheDocument();
+    expect(screen.queryByText("最终循环预览")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /导出走路 Sprite Sheet/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /导出透明帧 ZIP/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /导出 GIF/i })).not.toBeInTheDocument();
 
     const processCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/processing/four-direction"));
     expect(JSON.parse(String(processCall?.[1]?.body))).toMatchObject({
@@ -1866,18 +1853,9 @@ describe("App", () => {
     fireEvent.click(processIdleButton);
 
     await screen.findByText(/待机处理完成/);
-    expect(screen.getByAltText("待机预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
-    );
-    expect(screen.getByAltText("下方向待机预览")).toHaveAttribute(
-      "src",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/idle/transparent/down.png`)
-    );
-    expect(screen.getByRole("link", { name: /导出待机 Sprite Sheet/i })).toHaveAttribute(
-      "href",
-      expect.stringContaining(`${characterBase}/base-character/loop-export/exports/idle-4dir-sprite-sheet.png`)
-    );
+    expect(screen.queryByAltText("待机预览")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("下方向待机预览")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /导出待机 Sprite Sheet/i })).not.toBeInTheDocument();
 
     const idleProcessCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/processing/idle-four-direction"));
     expect(JSON.parse(String(idleProcessCall?.[1]?.body))).toMatchObject({
@@ -1919,7 +1897,7 @@ describe("App", () => {
     openSpriteAnimator();
 
     expect(screen.getByLabelText("自定义提示词")).toHaveValue("已保存的高清2D骑士首帧");
-    expect(screen.getByText("https://darn-skittle-unwoven.ngrok-free.dev")).toBeInTheDocument();
+    expect(screen.queryByText("https://darn-skittle-unwoven.ngrok-free.dev")).not.toBeInTheDocument();
   });
 
   it("loads backend workflow prompts and saves prompt edits back to the backend config", async () => {

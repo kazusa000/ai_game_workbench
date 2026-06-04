@@ -37,12 +37,10 @@ import {
 } from "../pixelCharacterStorage";
 import {
   sliceSpriteSheetBuffer,
-  type MattingMode,
   type SlicedSpriteFrame
 } from "../processing/imageProcessing";
-import { createLocalBirefnetMattingRunner, type BirefnetMattingRunner } from "../processing/birefnet";
 
-type Module02RouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir" | "localCodexImageGenerator" | "birefnetPythonPath" | "birefnetModelId" | "birefnetDevice" | "birefnetInputSize" | "birefnetMattingRunner">;
+type Module02RouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir" | "localCodexImageGenerator">;
 type PixelAssetKind = "character-reference" | "base-template" | "walk-template";
 type PixelSliceKind = "idle" | "walk";
 
@@ -241,7 +239,6 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
       normalizeSubjectScale?: boolean;
       targetSubjectHeight?: number;
       directionLayout?: "grid" | "contact-2x2";
-      mattingMode?: MattingMode;
     };
     const rows = clampGridCount(input.rows, 1, 32, 1);
     const columns = clampGridCount(input.columns, 1, 64, 1);
@@ -249,7 +246,6 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
     const tolerance = clampTolerance(input.tolerance);
     const outputFrameWidth = clampOutputFrameDimension(input.outputFrameWidth);
     const outputFrameHeight = clampOutputFrameDimension(input.outputFrameHeight);
-    const mattingMode = normalizeMattingMode(input.mattingMode);
     const normalizeSubjectScale = input.normalizeSubjectScale === true;
     const targetSubjectHeight = clampTargetSubjectHeight(input.targetSubjectHeight, outputFrameHeight)
       ?? (normalizeSubjectScale && outputFrameHeight ? Math.round(outputFrameHeight * 0.75) : undefined);
@@ -279,8 +275,6 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
         columns,
         keyColor,
         tolerance,
-        mattingMode,
-        matteFrameBuffer: mattingMode === "birefnet" ? resolveBirefnetMattingRunner(config) : undefined,
         centerFrames: input.centerFrames === true,
         centerMode: input.centerMode === "row" ? "row" : "frame",
         outputFrameWidth,
@@ -855,20 +849,6 @@ function parseFrameIndex(value: string): number {
 function clampTolerance(value: unknown): number {
   const tolerance = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 8;
   return Math.max(0, Math.min(255, tolerance));
-}
-
-function normalizeMattingMode(value: unknown): MattingMode {
-  return value === "birefnet" ? "birefnet" : "chroma";
-}
-
-function resolveBirefnetMattingRunner(config: Module02RouteConfig): BirefnetMattingRunner {
-  return config.birefnetMattingRunner ?? createLocalBirefnetMattingRunner({
-    storageDir: config.storageDir,
-    pythonPath: config.birefnetPythonPath,
-    modelId: config.birefnetModelId,
-    device: config.birefnetDevice,
-    inputSize: config.birefnetInputSize
-  });
 }
 
 function clampGridCount(value: unknown, min: number, max: number, fallback: number): number {

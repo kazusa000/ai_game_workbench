@@ -1,4 +1,4 @@
-import sharp from "sharp";
+﻿import sharp from "sharp";
 
 export interface SpriteSheetOptions {
   frameWidth: number;
@@ -10,8 +10,6 @@ export interface SliceSpriteSheetOptions {
   columns: number;
   keyColor: string;
   tolerance: number;
-  mattingMode?: MattingMode;
-  matteFrameBuffer?: FrameMattingRunner;
   centerFrames?: boolean;
   centerMode?: "frame" | "row";
   outputFrameWidth?: number;
@@ -20,9 +18,6 @@ export interface SliceSpriteSheetOptions {
   targetSubjectHeight?: number;
   directionLayout?: "grid" | "contact-2x2";
 }
-
-export type MattingMode = "chroma" | "birefnet";
-export type FrameMattingRunner = (input: Buffer) => Promise<Buffer>;
 
 export interface SlicedSpriteFrame {
   row: number;
@@ -151,17 +146,9 @@ export async function applySampledBackgroundKeyToBuffer(
 export async function matteFrameBuffer(
   input: Buffer,
   options: {
-    mattingMode?: MattingMode;
     tolerance?: number;
-    matteFrameBuffer?: FrameMattingRunner;
   } = {}
 ): Promise<Buffer> {
-  if (options.mattingMode === "birefnet") {
-    if (!options.matteFrameBuffer) {
-      throw new Error("BiRefNet 抠图未配置。");
-    }
-    return options.matteFrameBuffer(input);
-  }
   return applySampledBackgroundKeyToBuffer(input, { tolerance: getSpriteSheetKeyTolerance(options.tolerance ?? DEFAULT_CHROMA_KEY_TOLERANCE) });
 }
 
@@ -629,22 +616,14 @@ export async function sliceSpriteSheetBuffer(
     throw new Error("Sprite sheet grid is larger than the image");
   }
 
-  const mattingMode = options.mattingMode === "birefnet" ? "birefnet" : "chroma";
-  const sourceInput = mattingMode === "birefnet"
-    ? await matteFrameBuffer(input, {
-      mattingMode,
-      tolerance: options.tolerance,
-      matteFrameBuffer: options.matteFrameBuffer
-    })
-    : input;
   let frames: SlicedSpriteFrame[] = [];
-  if (mattingMode === "chroma" && options.directionLayout === "grid") {
-    frames = await sliceSpriteSheetByForegroundRows(sourceInput, options, metadata.width, metadata.height, frameWidth, frameHeight);
+  if (options.directionLayout === "grid") {
+    frames = await sliceSpriteSheetByForegroundRows(input, options, metadata.width, metadata.height, frameWidth, frameHeight);
   }
   if (frames.length === 0) {
     for (let row = 0; row < options.rows; row += 1) {
       for (let column = 0; column < options.columns; column += 1) {
-        const cropped = await sharp(sourceInput)
+        const cropped = await sharp(input)
           .extract({
             left: column * frameWidth,
             top: row * frameHeight,
@@ -658,8 +637,7 @@ export async function sliceSpriteSheetBuffer(
           index: column + 1,
           width: frameWidth,
           height: frameHeight,
-          buffer: mattingMode === "birefnet" ? cropped : await matteFrameBuffer(cropped, {
-            mattingMode: "chroma",
+          buffer: await matteFrameBuffer(cropped, {
             tolerance: options.tolerance
           })
         });
@@ -682,7 +660,7 @@ export async function sliceSpriteSheetBuffer(
       frame.height = options.outputFrameHeight;
     }
   }
-  if (mattingMode === "chroma" && isGreenScreenKey(parseHexColor(options.keyColor))) {
+  if (isGreenScreenKey(parseHexColor(options.keyColor))) {
     for (const frame of frames) {
       frame.buffer = await applySpriteSheetGreenScreenCleanupToBuffer(
         await applyColorKeyToBuffer(frame.buffer, options.keyColor, getSpriteSheetKeyTolerance(options.tolerance))
@@ -708,7 +686,7 @@ export async function sliceSpriteSheetBuffer(
       }
     }
   }
-  if (mattingMode === "chroma" && isGreenScreenKey(parseHexColor(options.keyColor))) {
+  if (isGreenScreenKey(parseHexColor(options.keyColor))) {
     for (const frame of frames) {
       frame.buffer = await applySpriteSheetGreenScreenCleanupToBuffer(
         await applyColorKeyToBuffer(frame.buffer, options.keyColor, getSpriteSheetKeyTolerance(options.tolerance))
@@ -793,8 +771,7 @@ async function sliceSpriteSheetByForegroundRows(
         index: index + 1,
         width: fallbackFrameWidth,
         height: fallbackFrameHeight,
-        buffer: options.mattingMode === "birefnet" ? cropped : await matteFrameBuffer(cropped, {
-          mattingMode: "chroma",
+        buffer: await matteFrameBuffer(cropped, {
           tolerance: options.tolerance
         })
       });

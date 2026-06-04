@@ -881,8 +881,6 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("设置基准模板/待机背景键色"), {
       target: { value: "#112233" }
     });
-    expect(screen.getByLabelText("设置基准模板/待机抠图方式")).toHaveValue("birefnet");
-    expect(screen.queryByLabelText("设置基准模板/待机键色容差")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("设置基准模板/待机提示词"), {
       target: { value: "base prompt from settings" }
     });
@@ -925,11 +923,6 @@ describe("App", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "模块设置" }));
-    expect(screen.getByLabelText("设置步行抠图方式")).toHaveValue("birefnet");
-    expect(screen.queryByLabelText("设置一键处理键色容差")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("设置步行抠图方式"), {
-      target: { value: "chroma" }
-    });
     fireEvent.change(screen.getByLabelText("设置一键处理键色容差"), {
       target: { value: "12" }
     });
@@ -948,7 +941,6 @@ describe("App", () => {
         rows: 4,
         columns: 10,
         tolerance: 12,
-        mattingMode: "chroma",
         outputFrameWidth: 64,
         outputFrameHeight: 128,
         targetSubjectHeight: 96

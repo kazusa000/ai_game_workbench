@@ -135,7 +135,6 @@ export interface SpriteSheetGenerationResult {
 }
 
 export type PixelSpriteSliceKind = "idle" | "walk";
-export type PixelSpriteMattingMode = "birefnet" | "chroma";
 
 export interface ProcessSpriteSheetInput {
   storedName?: string;
@@ -146,7 +145,6 @@ export interface ProcessSpriteSheetInput {
   columns: number;
   keyColor: string;
   tolerance: number;
-  mattingMode?: PixelSpriteMattingMode;
   centerFrames?: boolean;
   centerMode?: "frame" | "row";
   outputFrameWidth?: number;

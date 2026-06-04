@@ -73,11 +73,6 @@ export function createApp(options: CreateAppOptions) {
     openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
     openAiCompatibleApiKey: options.openAiCompatibleApiKey,
     localCodexImageGenerator: options.localCodexImageGenerator,
-    birefnetPythonPath: options.birefnetPythonPath,
-    birefnetModelId: options.birefnetModelId,
-    birefnetDevice: options.birefnetDevice,
-    birefnetInputSize: options.birefnetInputSize,
-    birefnetMattingRunner: options.birefnetMattingRunner,
     publicAssetBaseUrl: options.publicAssetBaseUrl
   });
   registerProcessingRoutes(app, {

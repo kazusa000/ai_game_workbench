@@ -28,7 +28,6 @@ import {
   uploadModule02ActionReferenceImage,
   uploadModule02CharacterAsset,
   type Module02ActionReferenceId,
-  type PixelSpriteMattingMode,
   type PixelCharacterAssetFile,
   type PixelCharacterAssets,
   type PixelCharacterFolder,
@@ -53,8 +52,6 @@ interface PixelSpriteDraft {
   keyColor: string;
   basePrompt: string;
   walkPrompt: string;
-  baseMattingMode: PixelSpriteMattingMode;
-  walkMattingMode: PixelSpriteMattingMode;
   tolerance: number;
   outputFrameWidth: number;
   outputFrameHeight: number;
@@ -155,8 +152,6 @@ const DEFAULT_DRAFT: PixelSpriteDraft = {
   keyColor: DEFAULT_KEY_COLOR,
   basePrompt: DEFAULT_BASE_PROMPT,
   walkPrompt: DEFAULT_WALK_PROMPT,
-  baseMattingMode: "birefnet",
-  walkMattingMode: "birefnet",
   tolerance: 34,
   outputFrameWidth: 64,
   outputFrameHeight: 128,
@@ -608,7 +603,6 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
       columns: getActionColumns(isIdle ? idleAction : walkAction),
       keyColor: draft.keyColor,
       tolerance: draft.tolerance,
-      mattingMode: isIdle ? draft.baseMattingMode : draft.walkMattingMode,
       centerFrames: true,
       centerMode: isIdle ? "frame" : "row",
       outputFrameWidth: FIXED_PROCESS_FRAME_WIDTH,
@@ -621,9 +615,8 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
 
   const handleSliceOne = async (sliceKind: PixelSpriteSliceKind) => {
     const label = sliceKind === "idle" ? "待机" : "步行";
-    const mattingLabel = (sliceKind === "idle" ? draft.baseMattingMode : draft.walkMattingMode) === "birefnet" ? "BiRefNet" : "绿幕";
     setProcessingSliceKind(sliceKind);
-    setSliceStatus(`正在一键处理${label}，使用${mattingLabel}抠图，固定规格 64 x 128，角色高度 96px...`);
+    setSliceStatus(`正在一键处理${label}，使用绿幕抠图，固定规格 64 x 128，角色高度 96px...`);
     try {
       const result = await runSlice(sliceKind);
       setAssets((current) => applySliceFrames(current, sliceKind, result.frames));
@@ -1021,18 +1014,9 @@ function PixelModuleSettings({
                 <SettingsSubsection title="处理设置">
                   <div className="form-grid">
                     <label className="field">
-                      抠图方式
-                      <select aria-label="设置基准模板/待机抠图方式" value={draft.baseMattingMode} onChange={(event) => onChangeDraft("baseMattingMode", normalizeMattingMode(event.target.value))}>
-                        <option value="birefnet">BiRefNet</option>
-                        <option value="chroma">绿幕抠图</option>
-                      </select>
+                      键色容差
+                      <input aria-label="设置基准模板/待机键色容差" type="number" min={0} max={255} value={draft.tolerance} onChange={(event) => onChangeDraft("tolerance", clampNumber(Number(event.target.value), 0, 255, draft.tolerance))} />
                     </label>
-                    {draft.baseMattingMode === "chroma" ? (
-                      <label className="field">
-                        键色容差
-                        <input aria-label="设置基准模板/待机键色容差" type="number" min={0} max={255} value={draft.tolerance} onChange={(event) => onChangeDraft("tolerance", clampNumber(Number(event.target.value), 0, 255, draft.tolerance))} />
-                      </label>
-                    ) : null}
                   </div>
                 </SettingsSubsection>
               </>
@@ -1079,18 +1063,9 @@ function PixelModuleSettings({
                 <SettingsSubsection title="处理设置">
                   <div className="form-grid">
                     <label className="field">
-                      抠图方式
-                      <select aria-label="设置步行抠图方式" value={draft.walkMattingMode} onChange={(event) => onChangeDraft("walkMattingMode", normalizeMattingMode(event.target.value))}>
-                        <option value="birefnet">BiRefNet</option>
-                        <option value="chroma">绿幕抠图</option>
-                      </select>
+                      键色容差
+                      <input aria-label="设置一键处理键色容差" type="number" min={0} max={255} value={draft.tolerance} onChange={(event) => onChangeDraft("tolerance", clampNumber(Number(event.target.value), 0, 255, draft.tolerance))} />
                     </label>
-                    {draft.walkMattingMode === "chroma" ? (
-                      <label className="field">
-                        键色容差
-                        <input aria-label="设置一键处理键色容差" type="number" min={0} max={255} value={draft.tolerance} onChange={(event) => onChangeDraft("tolerance", clampNumber(Number(event.target.value), 0, 255, draft.tolerance))} />
-                      </label>
-                    ) : null}
                   </div>
                 </SettingsSubsection>
               </>
@@ -1377,10 +1352,6 @@ function clampNumber(value: number, min: number, max: number, fallback: number):
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-function normalizeMattingMode(value: unknown): PixelSpriteMattingMode {
-  return value === "chroma" ? "chroma" : "birefnet";
-}
-
 function loadDraft(): PixelSpriteDraft {
   const raw = readStoredText(DRAFT_STORAGE_KEY, "") || readStoredText(LEGACY_DRAFT_STORAGE_KEY, "");
   if (!raw) {
@@ -1402,8 +1373,6 @@ function normalizeDraft(input: Partial<PixelSpriteDraft>): PixelSpriteDraft {
     ...input,
     basePrompt,
     walkPrompt,
-    baseMattingMode: normalizeMattingMode(input.baseMattingMode),
-    walkMattingMode: normalizeMattingMode(input.walkMattingMode),
     tolerance: clampNumber(Number(input.tolerance), 0, 255, DEFAULT_DRAFT.tolerance),
     outputFrameWidth: clampNumber(Number(input.outputFrameWidth), 16, 512, DEFAULT_DRAFT.outputFrameWidth),
     outputFrameHeight: clampNumber(Number(input.outputFrameHeight), 16, 512, DEFAULT_DRAFT.outputFrameHeight),

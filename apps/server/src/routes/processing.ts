@@ -1209,6 +1209,14 @@ export async function selectJumpFramesByHeight(
     }
   }
 
+  let startPosition = 0;
+  for (let position = 1; position <= peakPosition; position += 1) {
+    if ((jumpHeights[position] ?? 0) > movementThreshold) {
+      startPosition = position;
+      break;
+    }
+  }
+
   const landingThreshold = Math.max(2, Math.min(6, Math.round(baseline.height * 0.01)));
   let endPosition = frames.length - 1;
   for (let position = peakPosition + 1; position < jumpHeights.length; position += 1) {
@@ -1218,7 +1226,7 @@ export async function selectJumpFramesByHeight(
     }
   }
 
-  const selectedFrames = frames.slice(0, endPosition + 1);
+  const selectedFrames = frames.slice(startPosition, endPosition + 1);
   return {
     frames: selectedFrames,
     segment: {

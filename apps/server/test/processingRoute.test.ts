@@ -23,9 +23,9 @@ function makeStorageDir() {
 }
 
 describe("processing route", () => {
-  it("selects jump oneshot frames from first frame through first landing by foot height", async () => {
+  it("selects jump oneshot frames from takeoff through first landing by foot height", async () => {
     const dir = makeStorageDir();
-    const footYByFrame = [52, 47, 39, 44, 52, 52, 52];
+    const footYByFrame = [52, 52, 52, 47, 39, 44, 52, 52, 52];
     const frames = await Promise.all(footYByFrame.map(async (footY, index) => {
       const fileName = `frame_${String(index + 1).padStart(3, "0")}.png`;
       const path = join(dir, fileName);
@@ -60,11 +60,11 @@ describe("processing route", () => {
 
     const selected = await selectJumpFramesByHeight(frames, 8);
 
-    expect(selected.frames.map((frame) => frame.index)).toEqual([1, 2, 3, 4, 5]);
+    expect(selected.frames.map((frame) => frame.index)).toEqual([4, 5, 6, 7]);
     expect(selected.segment).toMatchObject({
-      startFrame: 1,
-      endFrame: 5,
-      frameCount: 5
+      startFrame: 4,
+      endFrame: 7,
+      frameCount: 4
     });
   });
 
@@ -621,7 +621,7 @@ describe("processing route", () => {
     expect(response.json().frameCount).toBeLessThan(20);
     for (const direction of response.json().directions) {
       const selectedFrameNumbers = direction.transparentFrames.map((frame: { index: number }) => frame.index);
-      expect(selectedFrameNumbers[0]).toBe(1);
+      expect(selectedFrameNumbers[0]).toBe(7);
       expect(selectedFrameNumbers).toContain(7);
       expect(selectedFrameNumbers).not.toContain(17);
       expect(selectedFrameNumbers.at(-1)).toBeLessThan(17);

@@ -148,6 +148,7 @@ export interface ProcessSpriteSheetInput {
   outputFrameWidth?: number;
   outputFrameHeight?: number;
   normalizeSubjectScale?: boolean;
+  targetSubjectHeight?: number;
   directionLayout?: "grid" | "contact-2x2";
 }
 

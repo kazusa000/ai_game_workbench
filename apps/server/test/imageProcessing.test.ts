@@ -10,6 +10,7 @@ import {
   findBestLoopSegment,
   normalizeFourDirectionFrameSequencesToProfile,
   resizeNearestBuffer,
+  sliceSpriteSheetBuffer,
   splitAndCenterFourDirectionFrameBuffer,
   splitFourDirectionFrameBuffer
 } from "../src/processing/imageProcessing";
@@ -652,6 +653,63 @@ describe("normalizeFourDirectionFrameSequencesToProfile", () => {
   });
 });
 
+describe("sliceSpriteSheetBuffer", () => {
+  it("normalizes subjects to a fixed pixel height across different source sheet sizes", async () => {
+    const smallSheet = await createSingleFrameSheet({
+      width: 32,
+      height: 64,
+      subjectLeft: 8,
+      subjectTop: 16,
+      subjectWidth: 16,
+      subjectHeight: 32
+    });
+    const largeSheet = await createSingleFrameSheet({
+      width: 64,
+      height: 128,
+      subjectLeft: 16,
+      subjectTop: 32,
+      subjectWidth: 32,
+      subjectHeight: 64
+    });
+
+    const [smallFrame] = await sliceSpriteSheetBuffer(smallSheet, {
+      rows: 1,
+      columns: 1,
+      keyColor: "#00ff00",
+      tolerance: 0,
+      outputFrameWidth: 64,
+      outputFrameHeight: 128,
+      normalizeSubjectScale: true,
+      targetSubjectHeight: 72
+    });
+    const [largeFrame] = await sliceSpriteSheetBuffer(largeSheet, {
+      rows: 1,
+      columns: 1,
+      keyColor: "#00ff00",
+      tolerance: 0,
+      outputFrameWidth: 64,
+      outputFrameHeight: 128,
+      normalizeSubjectScale: true,
+      targetSubjectHeight: 72
+    });
+
+    expect(smallFrame).toBeDefined();
+    expect(largeFrame).toBeDefined();
+
+    const smallOutput = await sharp(smallFrame!.buffer).raw().toBuffer({ resolveWithObject: true });
+    const largeOutput = await sharp(largeFrame!.buffer).raw().toBuffer({ resolveWithObject: true });
+
+    expect(findAlphaBox(smallOutput.data, smallOutput.info.width, smallOutput.info.height)).toMatchObject({
+      width: 36,
+      height: 72
+    });
+    expect(findAlphaBox(largeOutput.data, largeOutput.info.width, largeOutput.info.height)).toMatchObject({
+      width: 36,
+      height: 72
+    });
+  });
+});
+
 describe("findBestLoopSegment", () => {
   it("finds the most similar repeat frame and excludes it from the exported loop", () => {
     const signatures = [
@@ -762,6 +820,32 @@ async function createTransparentFrame(input: {
       raw[offset + 1] = 0;
       raw[offset + 2] = 0;
       raw[offset + 3] = 255;
+    }
+  }
+  return sharp(raw, { raw: { width: input.width, height: input.height, channels: 4 } }).png().toBuffer();
+}
+
+async function createSingleFrameSheet(input: {
+  width: number;
+  height: number;
+  subjectLeft: number;
+  subjectTop: number;
+  subjectWidth: number;
+  subjectHeight: number;
+}): Promise<Buffer> {
+  const raw = Buffer.alloc(input.width * input.height * 4);
+  for (let index = 0; index < raw.length; index += 4) {
+    raw[index] = 0;
+    raw[index + 1] = 255;
+    raw[index + 2] = 0;
+    raw[index + 3] = 255;
+  }
+  for (let y = input.subjectTop; y < input.subjectTop + input.subjectHeight; y += 1) {
+    for (let x = input.subjectLeft; x < input.subjectLeft + input.subjectWidth; x += 1) {
+      const offset = ((y * input.width) + x) * 4;
+      raw[offset] = 255;
+      raw[offset + 1] = 0;
+      raw[offset + 2] = 0;
     }
   }
   return sharp(raw, { raw: { width: input.width, height: input.height, channels: 4 } }).png().toBuffer();

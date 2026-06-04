@@ -15,6 +15,7 @@ export interface SliceSpriteSheetOptions {
   outputFrameWidth?: number;
   outputFrameHeight?: number;
   normalizeSubjectScale?: boolean;
+  targetSubjectHeight?: number;
   directionLayout?: "grid" | "contact-2x2";
 }
 
@@ -639,7 +640,7 @@ export async function sliceSpriteSheetBuffer(
     }
   }
   if (options.normalizeSubjectScale) {
-    await normalizeTransparentFrameSubjectScale(frames);
+    await normalizeTransparentFrameSubjectScale(frames, options.targetSubjectHeight);
   }
   if (options.centerFrames) {
     const centerMode = options.centerMode === "row" ? "row" : "frame";
@@ -833,7 +834,7 @@ async function shiftTransparentFrameBuffer(
     .toBuffer();
 }
 
-async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[]): Promise<void> {
+async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[], targetSubjectHeight?: number): Promise<void> {
   const boxes = await Promise.all(frames.map(async (frame) => {
     const image = sharp(frame.buffer).ensureAlpha();
     const metadata = await image.metadata();
@@ -849,7 +850,10 @@ async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[]
   if (heights.length === 0) {
     return;
   }
-  const targetHeight = Math.max(...heights);
+  const normalizedTargetSubjectHeight = Number.isFinite(targetSubjectHeight)
+    ? Math.max(1, Math.round(targetSubjectHeight ?? 0))
+    : undefined;
+  const targetHeight = normalizedTargetSubjectHeight ?? Math.max(...heights);
   for (const [index, frame] of frames.entries()) {
     const box = boxes[index];
     if (!box) {

@@ -922,7 +922,8 @@ describe("App", () => {
       expect(processingCall).toMatchObject({
         tolerance: 12,
         outputFrameWidth: 96,
-        outputFrameHeight: 144
+        outputFrameHeight: 144,
+        targetSubjectHeight: 108
       });
     });
 

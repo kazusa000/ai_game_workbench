@@ -486,6 +486,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
       outputFrameWidth: draft.outputFrameWidth,
       outputFrameHeight: draft.outputFrameHeight,
       normalizeSubjectScale: true,
+      targetSubjectHeight: getTargetSubjectHeight(draft.outputFrameHeight),
       directionLayout: isIdle ? "contact-2x2" : "grid"
     });
   };
@@ -1193,6 +1194,10 @@ function clampNumber(value: number, min: number, max: number, fallback: number):
     return fallback;
   }
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function getTargetSubjectHeight(outputFrameHeight: number): number {
+  return Math.max(1, Math.round(outputFrameHeight * 0.75));
 }
 
 function loadDraft(): PixelSpriteDraft {

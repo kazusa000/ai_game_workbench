@@ -238,6 +238,7 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
       outputFrameWidth?: number;
       outputFrameHeight?: number;
       normalizeSubjectScale?: boolean;
+      targetSubjectHeight?: number;
       directionLayout?: "grid" | "contact-2x2";
     };
     const rows = clampGridCount(input.rows, 1, 32, 1);
@@ -246,6 +247,9 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
     const tolerance = clampTolerance(input.tolerance);
     const outputFrameWidth = clampOutputFrameDimension(input.outputFrameWidth);
     const outputFrameHeight = clampOutputFrameDimension(input.outputFrameHeight);
+    const normalizeSubjectScale = input.normalizeSubjectScale === true;
+    const targetSubjectHeight = clampTargetSubjectHeight(input.targetSubjectHeight, outputFrameHeight)
+      ?? (normalizeSubjectScale && outputFrameHeight ? Math.round(outputFrameHeight * 0.75) : undefined);
     const sourceResult = resolveSpriteSheetSourcePath(config.storageDir, input);
     if ("error" in sourceResult) {
       return reply.code(400).send({ error: sourceResult.error });
@@ -274,7 +278,8 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
       centerMode: input.centerMode === "row" ? "row" : "frame",
       outputFrameWidth,
       outputFrameHeight,
-      normalizeSubjectScale: input.normalizeSubjectScale === true,
+      normalizeSubjectScale,
+      targetSubjectHeight,
       directionLayout: input.directionLayout === "contact-2x2" ? "contact-2x2" : "grid"
     });
     if (pixelCharacterId && sliceKind === "idle") {
@@ -890,6 +895,17 @@ function clampOutputFrameDimension(value: unknown): number | undefined {
     return undefined;
   }
   return Math.max(64, Math.min(1024, dimension));
+}
+
+function clampTargetSubjectHeight(value: unknown, outputFrameHeight: number | undefined): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const height = Math.round(value);
+  if (height <= 0) {
+    return undefined;
+  }
+  return Math.max(1, Math.min(outputFrameHeight ?? 1024, height));
 }
 
 function getImageExtension(filename: string, mimeType: string): string {

@@ -29,7 +29,7 @@ export class OpenAiImagesError extends Error {
 }
 
 export function buildOpenAiImagesGenerationPayload(input: BuildOpenAiImagesGenerationPayloadInput) {
-  const imageUrls = (input.imageDataUrls ?? [input.referenceImageDataUrl, input.styleReferenceImageDataUrl])
+  const imageUrls = (input.imageDataUrls ?? [input.styleReferenceImageDataUrl, input.referenceImageDataUrl])
     .filter((url): url is string => typeof url === "string" && url.trim().length > 0);
   return {
     model: input.model,

@@ -296,8 +296,8 @@ describe("generation route", () => {
         resolution: "1k"
       });
       expect(body.image_urls).toHaveLength(2);
-      expect(body.image_urls[0]).toBe("data:image/png;base64,AQIDBA==");
-      expect(body.image_urls[1]).toEqual(expect.stringMatching(/^data:image\/png;base64,/));
+      expect(body.image_urls[0]).toEqual(expect.stringMatching(/^data:image\/png;base64,/));
+      expect(body.image_urls[1]).toBe("data:image/png;base64,AQIDBA==");
       return Response.json({
         data: [
           {

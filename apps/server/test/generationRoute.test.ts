@@ -295,10 +295,9 @@ describe("generation route", () => {
         size: "1:1",
         resolution: "1k"
       });
-      expect(body.image_urls).toEqual(expect.arrayContaining([
-        expect.stringMatching(/^data:image\/png;base64,/),
-        "data:image/png;base64,AQIDBA=="
-      ]));
+      expect(body.image_urls).toHaveLength(2);
+      expect(body.image_urls[0]).toBe("data:image/png;base64,AQIDBA==");
+      expect(body.image_urls[1]).toEqual(expect.stringMatching(/^data:image\/png;base64,/));
       return Response.json({
         data: [
           {
@@ -335,6 +334,61 @@ describe("generation route", () => {
     expect(response.statusCode).toBe(200);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect([...readFileSync(response.json().localPath)]).toEqual([9, 8, 7, 6]);
+
+    await app.close();
+  });
+
+  it("sends both the character template and direction reference to APIMart direction generation", async () => {
+    const storageDir = makeStorageDir();
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe("https://api.apimart.ai/v1/images/generations");
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      expect(body).toMatchObject({
+        model: "gpt-image-2",
+        prompt: "APIMart walk direction prompt",
+        n: 1,
+        size: "1:1",
+        resolution: "1k"
+      });
+      expect(body.image_urls).toHaveLength(2);
+      expect(body.image_urls[0]).toBe("data:image/png;base64,VEVNUExBVEU=");
+      expect(body.image_urls[1]).toEqual(expect.stringMatching(/^data:image\/png;base64,/));
+      return Response.json({
+        data: [
+          {
+            url: "data:image/png;base64,CQgHBg=="
+          }
+        ]
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      openAiCompatibleBaseUrl: "https://api.apimart.ai/v1",
+      openAiCompatibleApiKey: TEST_COMPATIBLE_API_KEY,
+      storageDir
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generation/direction-template",
+      headers: {
+        "x-public-asset-base-url": "https://assets.example.com"
+      },
+      payload: {
+        templateKind: "walk",
+        model: "apimart/gpt-image-2",
+        prompt: "APIMart walk direction prompt",
+        targetSize: 1024,
+        keyColor: "#00ff00",
+        characterTemplateImageDataUrl: "data:image/png;base64,VEVNUExBVEU="
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
 
     await app.close();
   });

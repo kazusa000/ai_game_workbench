@@ -628,7 +628,7 @@ export async function sliceSpriteSheetBuffer(
           index: column + 1,
           width: frameWidth,
           height: frameHeight,
-          buffer: await applySampledBackgroundKeyToBuffer(cropped, { tolerance: options.tolerance })
+          buffer: await applySampledBackgroundKeyToBuffer(cropped, { tolerance: getSpriteSheetKeyTolerance(options.tolerance) })
         });
       }
     }
@@ -642,6 +642,13 @@ export async function sliceSpriteSheetBuffer(
       frame.buffer = await resizeTransparentBufferToSize(frame.buffer, options.outputFrameWidth, options.outputFrameHeight);
       frame.width = options.outputFrameWidth;
       frame.height = options.outputFrameHeight;
+    }
+  }
+  if (isGreenScreenKey(parseHexColor(options.keyColor))) {
+    for (const frame of frames) {
+      frame.buffer = await applySpriteSheetGreenScreenCleanupToBuffer(
+        await applyColorKeyToBuffer(frame.buffer, options.keyColor, getSpriteSheetKeyTolerance(options.tolerance))
+      );
     }
   }
   if (options.normalizeSubjectScale) {
@@ -663,7 +670,43 @@ export async function sliceSpriteSheetBuffer(
       }
     }
   }
+  if (isGreenScreenKey(parseHexColor(options.keyColor))) {
+    for (const frame of frames) {
+      frame.buffer = await applySpriteSheetGreenScreenCleanupToBuffer(
+        await applyColorKeyToBuffer(frame.buffer, options.keyColor, getSpriteSheetKeyTolerance(options.tolerance))
+      );
+    }
+  }
   return frames;
+}
+
+async function applySpriteSheetGreenScreenCleanupToBuffer(input: Buffer): Promise<Buffer> {
+  const image = sharp(input).ensureAlpha();
+  const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) {
+    throw new Error("Cannot clean sprite sheet green screen without dimensions");
+  }
+  const raw = await image.raw().toBuffer();
+  for (let index = 0; index < raw.length; index += 4) {
+    if ((raw[index + 3] ?? 0) === 0) {
+      continue;
+    }
+    const pixel = {
+      r: raw[index] ?? 0,
+      g: raw[index + 1] ?? 0,
+      b: raw[index + 2] ?? 0
+    };
+    if (isSpriteSheetGreenSpillPixel(pixel)) {
+      raw[index + 3] = 0;
+    }
+  }
+  return sharp(raw, {
+    raw: {
+      width: metadata.width,
+      height: metadata.height,
+      channels: 4
+    }
+  }).png().toBuffer();
 }
 
 async function sliceSpriteSheetByForegroundRows(
@@ -675,11 +718,17 @@ async function sliceSpriteSheetByForegroundRows(
   fallbackFrameHeight: number
 ): Promise<SlicedSpriteFrame[]> {
   const key = parseHexColor(options.keyColor);
-  const rowHeight = Math.floor(sheetHeight / options.rows);
+  const raw = await sharp(input).ensureAlpha().raw().toBuffer();
+  const rowSegments = findForegroundRowSegments(raw, sheetWidth, sheetHeight, key, options.tolerance);
+  if (rowSegments.length < 2) {
+    return [];
+  }
+  const rows = rowSegments.slice(0, options.rows);
   const frames: SlicedSpriteFrame[] = [];
-  for (let row = 0; row < options.rows; row += 1) {
-    const top = row * rowHeight;
-    const height = row === options.rows - 1 ? sheetHeight - top : rowHeight;
+  for (const [row, rowSegment] of rows.entries()) {
+    const top = Math.max(0, rowSegment.top - 8);
+    const bottom = Math.min(sheetHeight - 1, rowSegment.bottom + 8);
+    const height = bottom - top + 1;
     const rowBuffer = await sharp(input)
       .extract({ left: 0, top, width: sheetWidth, height })
       .ensureAlpha()
@@ -706,11 +755,62 @@ async function sliceSpriteSheetByForegroundRows(
         index: index + 1,
         width: fallbackFrameWidth,
         height: fallbackFrameHeight,
-        buffer: await applySampledBackgroundKeyToBuffer(cropped, { tolerance: options.tolerance })
+        buffer: await applySampledBackgroundKeyToBuffer(cropped, { tolerance: getSpriteSheetKeyTolerance(options.tolerance) })
       });
     }
   }
   return frames;
+}
+
+function findForegroundRowSegments(
+  raw: Buffer,
+  width: number,
+  height: number,
+  key: RgbColor,
+  tolerance: number
+): Array<{ top: number; bottom: number }> {
+  const occupied = new Uint8Array(height);
+  for (let y = 0; y < height; y += 1) {
+    let count = 0;
+    for (let x = 0; x < width; x += 1) {
+      const index = ((y * width) + x) * 4;
+      const alpha = raw[index + 3] ?? 0;
+      if (alpha === 0) {
+        continue;
+      }
+      const r = raw[index] ?? 0;
+      const g = raw[index + 1] ?? 0;
+      const b = raw[index + 2] ?? 0;
+      if (!isKeyColorPixel({ r, g, b }, key, tolerance)) {
+        count += 1;
+      }
+    }
+    if (count >= 8) {
+      occupied[y] = 1;
+    }
+  }
+
+  const merged: Array<{ top: number; bottom: number }> = [];
+  let current: { top: number; bottom: number } | null = null;
+  let lastOccupied = -1;
+  for (let y = 0; y < height; y += 1) {
+    if (occupied[y] !== 1) {
+      continue;
+    }
+    if (!current || (lastOccupied >= 0 && y - lastOccupied > 20)) {
+      if (current) {
+        merged.push(current);
+      }
+      current = { top: y, bottom: y };
+    } else {
+      current.bottom = y;
+    }
+    lastOccupied = y;
+  }
+  if (current) {
+    merged.push(current);
+  }
+  return merged.filter((segment) => segment.bottom - segment.top + 1 >= 24);
 }
 
 function findForegroundColumnSegments(
@@ -762,6 +862,10 @@ function findForegroundColumnSegments(
     merged.push(current);
   }
   return merged.filter((segment) => segment.right - segment.left + 1 >= 12);
+}
+
+function getSpriteSheetKeyTolerance(tolerance: number): number {
+  return Math.max(tolerance, 220);
 }
 
 export async function alignTransparentFrameToReferenceBuffers(
@@ -964,10 +1068,12 @@ async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[]
     }
     const sourceWidth = getBoxWidth(box);
     const sourceHeight = getBoxHeight(box);
-    const scale = Math.min(targetHeight / sourceHeight, frame.width / sourceWidth, frame.height / sourceHeight);
+    const scale = normalizedTargetSubjectHeight
+      ? Math.min(targetHeight / sourceHeight, frame.height / sourceHeight)
+      : Math.min(targetHeight / sourceHeight, frame.width / sourceWidth, frame.height / sourceHeight);
     const resizedWidth = Math.max(1, Math.round(sourceWidth * scale));
     const resizedHeight = Math.max(1, Math.round(sourceHeight * scale));
-    const subject = await sharp(frame.buffer)
+    let subject = await sharp(frame.buffer)
       .extract({
         left: box.left,
         top: box.top,
@@ -980,8 +1086,21 @@ async function normalizeTransparentFrameSubjectScale(frames: SlicedSpriteFrame[]
       })
       .png()
       .toBuffer();
-    const left = Math.round((frame.width - resizedWidth) / 2);
-    const top = Math.round((frame.height - resizedHeight) / 2);
+    const subjectWidth = Math.min(resizedWidth, frame.width);
+    const subjectHeight = Math.min(resizedHeight, frame.height);
+    if (resizedWidth > frame.width || resizedHeight > frame.height) {
+      subject = await sharp(subject)
+        .extract({
+          left: Math.max(0, Math.floor((resizedWidth - subjectWidth) / 2)),
+          top: Math.max(0, Math.floor((resizedHeight - subjectHeight) / 2)),
+          width: subjectWidth,
+          height: subjectHeight
+        })
+        .png()
+        .toBuffer();
+    }
+    const left = Math.round((frame.width - subjectWidth) / 2);
+    const top = Math.round((frame.height - subjectHeight) / 2);
     frame.buffer = await sharp({
       create: {
         width: frame.width,
@@ -1755,4 +1874,8 @@ function isGreenScreenPixel(pixel: RgbColor, tolerance: number): boolean {
   const minDominance = 96 - (strength * 76);
   const dominance = pixel.g - Math.max(pixel.r, pixel.b);
   return pixel.g >= minGreen && dominance >= minDominance;
+}
+
+function isSpriteSheetGreenSpillPixel(pixel: RgbColor): boolean {
+  return pixel.g >= 28 && pixel.g > pixel.r + 6 && pixel.g > pixel.b + 4;
 }

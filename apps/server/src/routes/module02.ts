@@ -283,6 +283,9 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
       directionLayout: input.directionLayout === "contact-2x2" ? "contact-2x2" : "grid"
     });
     if (pixelCharacterId && sliceKind === "idle") {
+      slicedFrames = slicedFrames
+        .filter((frame) => frame.row === 1)
+        .map((frame) => ({ ...frame, row: 1, index: 1 }));
       slicedFrames = await alignIdleFramesToExistingWalkRows(config.storageDir, pixelCharacterId, slicedFrames);
     }
 

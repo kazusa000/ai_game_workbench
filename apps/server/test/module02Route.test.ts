@@ -331,6 +331,56 @@ describe("module 02 pixel character routes", () => {
 
     await app.close();
   });
+
+  it("exports one cleaned fixed-size idle frame from a 2x2 base template", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/module02/characters",
+      payload: { name: "hero" }
+    });
+    await mkdir(join(storageDir, "characters_pixel", "hero", "base-template"), { recursive: true });
+    writeFileSync(join(storageDir, "characters_pixel", "hero", "base-template", "output.png"), await createFourDirectionIdleSheetWithGreenSpill());
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/module02/processing/sprite-sheet",
+      payload: {
+        pixelCharacterId: "hero",
+        sliceKind: "idle",
+        sourceUrl: "/module02/characters/hero/base-template/output.png",
+        rows: 2,
+        columns: 2,
+        keyColor: "#00ff00",
+        tolerance: 34,
+        centerFrames: true,
+        centerMode: "frame",
+        outputFrameWidth: 64,
+        outputFrameHeight: 128,
+        normalizeSubjectScale: true,
+        targetSubjectHeight: 96,
+        directionLayout: "contact-2x2"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      frameCount: 1,
+      frames: [
+        expect.objectContaining({ row: 1, index: 1, width: 64, height: 128 })
+      ]
+    });
+    expect(existsSync(join(storageDir, "characters_pixel", "hero", "slices", "idle", "frames", "row_002"))).toBe(false);
+    const output = await sharp(readFileSync(join(storageDir, "characters_pixel", "hero", "slices", "idle", "frames", "row_001", "frame_001.png")))
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect(findAlphaBox(output.data, output.info.width, output.info.height)).toMatchObject({ height: 96 });
+    expect(countGreenScreenPixels(output.data)).toBe(0);
+
+    await app.close();
+  });
 });
 
 function multipartPayload(fileName: string, contentType: string, body: string) {
@@ -403,4 +453,84 @@ async function createUnevenWalkSheet(): Promise<Buffer> {
     .composite(composites)
     .png()
     .toBuffer();
+}
+
+async function createFourDirectionIdleSheetWithGreenSpill(): Promise<Buffer> {
+  const sprite = await createSpriteWithGreenSpill(42, 78);
+  return sharp({
+    create: {
+      width: 512,
+      height: 512,
+      channels: 4,
+      background: { r: 0, g: 255, b: 0, alpha: 1 }
+    }
+  })
+    .composite([
+      { input: sprite, left: 105, top: 70 },
+      { input: sprite, left: 360, top: 78 },
+      { input: sprite, left: 105, top: 326 },
+      { input: sprite, left: 360, top: 318 }
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function createSpriteWithGreenSpill(width: number, height: number): Promise<Buffer> {
+  const raw = Buffer.alloc((width + 4) * (height + 4) * 4);
+  const imageWidth = width + 4;
+  const imageHeight = height + 4;
+  for (let index = 0; index < raw.length; index += 4) {
+    raw[index] = 25;
+    raw[index + 1] = 92;
+    raw[index + 2] = 32;
+    raw[index + 3] = 255;
+  }
+  for (let y = 2; y < imageHeight - 2; y += 1) {
+    for (let x = 2; x < imageWidth - 2; x += 1) {
+      const offset = ((y * imageWidth) + x) * 4;
+      raw[offset] = 184;
+      raw[offset + 1] = 20;
+      raw[offset + 2] = 34;
+      raw[offset + 3] = 255;
+    }
+  }
+  return sharp(raw, { raw: { width: imageWidth, height: imageHeight, channels: 4 } }).png().toBuffer();
+}
+
+function findAlphaBox(raw: Buffer, width: number, height: number) {
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = raw[((y * width) + x) * 4 + 3] ?? 0;
+      if (alpha === 0) {
+        continue;
+      }
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+    }
+  }
+
+  return right >= left && bottom >= top
+    ? { left, top, right, bottom, width: right - left + 1, height: bottom - top + 1 }
+    : null;
+}
+
+function countGreenScreenPixels(raw: Buffer): number {
+  let count = 0;
+  for (let index = 0; index < raw.length; index += 4) {
+    const alpha = raw[index + 3] ?? 0;
+    const r = raw[index] ?? 0;
+    const g = raw[index + 1] ?? 0;
+    const b = raw[index + 2] ?? 0;
+    if (alpha > 0 && g >= 28 && g > r + 6 && g > b + 4) {
+      count += 1;
+    }
+  }
+  return count;
 }

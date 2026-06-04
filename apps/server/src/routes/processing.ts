@@ -446,9 +446,17 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
     }
     const frameWidth = firstMetadata.width;
     const frameHeight = firstMetadata.height;
-    const background = parseHexColorForSharp(keyColor);
     const composites = [];
     for (const [index, direction] of directionKeys.entries()) {
+      const background = await sampleFrameBackgroundColor(idleBuffers[direction]);
+      const cellBackground = await sharp({
+        create: {
+          width: frameWidth,
+          height: frameHeight,
+          channels: 4,
+          background: { ...background, alpha: 1 }
+        }
+      }).png().toBuffer();
       const subject = await buildScaledAdvancedStartSubject(idleBuffers[direction], {
         frameWidth,
         frameHeight,
@@ -460,6 +468,11 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       const subjectHeight = metadata.height ?? Math.round(frameHeight * scale);
       const cellLeft = (index % 2) * frameWidth;
       const cellTop = Math.floor(index / 2) * frameHeight;
+      composites.push({
+        input: cellBackground,
+        left: cellLeft,
+        top: cellTop
+      });
       composites.push({
         input: subject,
         left: clampInteger(Math.round(cellLeft + (frameWidth - subjectWidth) / 2), cellLeft, cellLeft + Math.max(0, frameWidth - subjectWidth)),
@@ -474,7 +487,7 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
         width: frameWidth * 2,
         height: frameHeight * 2,
         channels: 4,
-        background: { ...background, alpha: 1 }
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
       }
     }).composite(composites).png().toBuffer();
     await writeFile(localPath, buffer);
@@ -593,16 +606,14 @@ async function buildScaledAdvancedStartSubject(
     tolerance: number;
   }
 ): Promise<Buffer> {
-  const keyed = await removeDetachedAlphaArtifacts(
-    await applySampledBackgroundKeyToBuffer(input, { tolerance: options.tolerance })
-  );
-  const image = sharp(keyed).ensureAlpha();
+  const image = sharp(input).ensureAlpha();
   const metadata = await image.metadata();
   if (!metadata.width || !metadata.height) {
     throw new Error("advanced action subject dimensions are invalid");
   }
   const raw = await image.raw().toBuffer();
-  const box = findAlphaBox(raw, metadata.width, metadata.height);
+  const background = sampleBackgroundColorFromRaw(raw, metadata.width, metadata.height);
+  const box = findLargestForegroundBox(raw, metadata.width, metadata.height, background, clampForegroundBoxTolerance(options.tolerance));
   if (!box) {
     return sharp({
       create: {
@@ -618,7 +629,7 @@ async function buildScaledAdvancedStartSubject(
   const subjectHeight = box.bottom - box.top + 1;
   const maxWidth = Math.max(1, Math.round(options.frameWidth * options.scale));
   const maxHeight = Math.max(1, Math.round(options.frameHeight * options.scale));
-  return sharp(keyed)
+  return sharp(input)
     .extract({
       left: box.left,
       top: box.top,
@@ -632,6 +643,144 @@ async function buildScaledAdvancedStartSubject(
     })
     .png()
     .toBuffer();
+}
+
+async function sampleFrameBackgroundColor(input: Buffer): Promise<{ r: number; g: number; b: number }> {
+  const image = sharp(input).ensureAlpha();
+  const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) {
+    return { r: 0, g: 255, b: 0 };
+  }
+  const raw = await image.raw().toBuffer();
+  return sampleBackgroundColorFromRaw(raw, metadata.width, metadata.height);
+}
+
+function sampleBackgroundColorFromRaw(
+  raw: Buffer,
+  width: number,
+  height: number
+): { r: number; g: number; b: number } {
+  const counts = new Map<string, { count: number; color: { r: number; g: number; b: number } }>();
+  const addPixel = (x: number, y: number) => {
+    const offset = ((y * width) + x) * 4;
+    const alpha = raw[offset + 3] ?? 0;
+    if (alpha === 0) {
+      return;
+    }
+    const color = {
+      r: raw[offset] ?? 0,
+      g: raw[offset + 1] ?? 0,
+      b: raw[offset + 2] ?? 0
+    };
+    const key = `${color.r},${color.g},${color.b}`;
+    const current = counts.get(key);
+    counts.set(key, current ? { ...current, count: current.count + 1 } : { count: 1, color });
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    addPixel(x, 0);
+    addPixel(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    addPixel(0, y);
+    addPixel(width - 1, y);
+  }
+
+  let best: { count: number; color: { r: number; g: number; b: number } } | undefined;
+  for (const item of counts.values()) {
+    if (!best || item.count > best.count) {
+      best = item;
+    }
+  }
+  return best?.color ?? { r: 0, g: 255, b: 0 };
+}
+
+function findLargestForegroundBox(
+  raw: Buffer,
+  width: number,
+  height: number,
+  background: { r: number; g: number; b: number },
+  tolerance: number
+): { left: number; top: number; right: number; bottom: number } | null {
+  const visited = new Uint8Array(width * height);
+  let best: { left: number; top: number; right: number; bottom: number; area: number; centerDistance: number } | null = null;
+  const imageCenterX = (width - 1) / 2;
+  const imageCenterY = (height - 1) / 2;
+
+  for (let start = 0; start < visited.length; start += 1) {
+    if (visited[start] === 1 || !isForegroundPixel(raw, start, background, tolerance)) {
+      visited[start] = 1;
+      continue;
+    }
+
+    const stack = [start];
+    visited[start] = 1;
+    let area = 0;
+    let left = width;
+    let top = height;
+    let right = -1;
+    let bottom = -1;
+    while (stack.length > 0) {
+      const pixelIndex = stack.pop() ?? 0;
+      const x = pixelIndex % width;
+      const y = Math.floor(pixelIndex / width);
+      area += 1;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+
+      for (const neighbor of [pixelIndex - 1, pixelIndex + 1, pixelIndex - width, pixelIndex + width]) {
+        if (neighbor < 0 || neighbor >= visited.length || visited[neighbor] === 1) {
+          continue;
+        }
+        const neighborX = neighbor % width;
+        if ((neighbor === pixelIndex - 1 || neighbor === pixelIndex + 1) && Math.abs(neighborX - x) !== 1) {
+          continue;
+        }
+        visited[neighbor] = 1;
+        if (isForegroundPixel(raw, neighbor, background, tolerance)) {
+          stack.push(neighbor);
+        }
+      }
+    }
+
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+    const centerDistance = Math.hypot(centerX - imageCenterX, centerY - imageCenterY);
+    if (!best || area > best.area || area === best.area && centerDistance < best.centerDistance) {
+      best = { left, top, right, bottom, area, centerDistance };
+    }
+  }
+
+  return best && best.area > 0
+    ? { left: best.left, top: best.top, right: best.right, bottom: best.bottom }
+    : null;
+}
+
+function isForegroundPixel(
+  raw: Buffer,
+  pixelIndex: number,
+  background: { r: number; g: number; b: number },
+  tolerance: number
+): boolean {
+  const offset = pixelIndex * 4;
+  const alpha = raw[offset + 3] ?? 0;
+  if (alpha === 0) {
+    return false;
+  }
+  const red = raw[offset] ?? 0;
+  const green = raw[offset + 1] ?? 0;
+  const blue = raw[offset + 2] ?? 0;
+  return Math.max(
+    Math.abs(red - background.r),
+    Math.abs(green - background.g),
+    Math.abs(blue - background.b)
+  ) > tolerance;
+}
+
+function clampForegroundBoxTolerance(value: number): number {
+  return Math.max(0, Math.min(64, Math.round(value)));
 }
 
 function findAlphaBox(
@@ -656,18 +805,6 @@ function findAlphaBox(
     }
   }
   return right >= left && bottom >= top ? { left, top, right, bottom } : null;
-}
-
-function parseHexColorForSharp(hex: string): { r: number; g: number; b: number } {
-  const normalized = hex.trim().replace(/^#/, "");
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return { r: 0, g: 255, b: 0 };
-  }
-  return {
-    r: Number.parseInt(normalized.slice(0, 2), 16),
-    g: Number.parseInt(normalized.slice(2, 4), 16),
-    b: Number.parseInt(normalized.slice(4, 6), 16)
-  };
 }
 
 function clampInteger(value: number, min: number, max: number): number {

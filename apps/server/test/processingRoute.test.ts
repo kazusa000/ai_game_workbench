@@ -409,7 +409,7 @@ describe("processing route", () => {
     await app.close();
   });
 
-  it("scales only the character subject when preparing advanced action start frames", async () => {
+  it("preserves source pixels when scaling advanced action start frame subjects", async () => {
     const storageDir = makeStorageDir();
     const app = createApp({
       ffmpegPath: "ffmpeg",
@@ -446,11 +446,12 @@ describe("processing route", () => {
 
     const output = readFileSync(join(storageDir, "characters", "hero", "advanced-character", "attack-1", "video", "input-4dir.png"));
     const raw = await sharp(output).ensureAlpha().raw().toBuffer();
-    let tintedGreenPixels = 0;
+    let sourceBackgroundPixels = 0;
+    let exactKeyPixels = 0;
     let detachedArtifactPixels = 0;
     let unexpectedIntermediatePixels = 0;
     const allowedColors = new Set([
-      "0,255,0",
+      "6,249,6",
       "255,0,0",
       "0,0,255",
       "255,255,0",
@@ -460,10 +461,11 @@ describe("processing route", () => {
       const red = raw[index] ?? 0;
       const green = raw[index + 1] ?? 0;
       const blue = raw[index + 2] ?? 0;
-      const isExactKey = red === 0 && green === 255 && blue === 0;
-      const isTintedGreenBackground = green > 220 && red < 40 && blue < 40 && !isExactKey;
-      if (isTintedGreenBackground) {
-        tintedGreenPixels += 1;
+      if (red === 6 && green === 249 && blue === 6) {
+        sourceBackgroundPixels += 1;
+      }
+      if (red === 0 && green === 255 && blue === 0) {
+        exactKeyPixels += 1;
       }
       if (red === 255 && green === 0 && blue === 255) {
         detachedArtifactPixels += 1;
@@ -472,14 +474,16 @@ describe("processing route", () => {
         unexpectedIntermediatePixels += 1;
       }
     }
-    expect(tintedGreenPixels).toBe(0);
+    expect(sourceBackgroundPixels).toBeGreaterThan(0);
+    expect(exactKeyPixels).toBe(0);
     expect(detachedArtifactPixels).toBe(0);
     expect(unexpectedIntermediatePixels).toBe(0);
 
-    expect(findNonGreenBox(raw, 128, 128, { left: 0, top: 0, width: 64, height: 64 })).toMatchObject({ centerX: 32, centerY: 32 });
-    expect(findNonGreenBox(raw, 128, 128, { left: 64, top: 0, width: 64, height: 64 })).toMatchObject({ centerX: 96, centerY: 32 });
-    expect(findNonGreenBox(raw, 128, 128, { left: 0, top: 64, width: 64, height: 64 })).toMatchObject({ centerX: 32, centerY: 96 });
-    expect(findNonGreenBox(raw, 128, 128, { left: 64, top: 64, width: 64, height: 64 })).toMatchObject({ centerX: 96, centerY: 96 });
+    const background = { r: 6, g: 249, b: 6 };
+    expect(findNonGreenBox(raw, 128, 128, { left: 0, top: 0, width: 64, height: 64 }, background)).toMatchObject({ centerX: 32, centerY: 32 });
+    expect(findNonGreenBox(raw, 128, 128, { left: 64, top: 0, width: 64, height: 64 }, background)).toMatchObject({ centerX: 96, centerY: 32 });
+    expect(findNonGreenBox(raw, 128, 128, { left: 0, top: 64, width: 64, height: 64 }, background)).toMatchObject({ centerX: 32, centerY: 96 });
+    expect(findNonGreenBox(raw, 128, 128, { left: 64, top: 64, width: 64, height: 64 }, background)).toMatchObject({ centerX: 96, centerY: 96 });
 
     await app.close();
   });
@@ -1314,7 +1318,8 @@ function findNonGreenBox(
   raw: Buffer,
   width: number,
   _height: number,
-  region: { left: number; top: number; width: number; height: number }
+  region: { left: number; top: number; width: number; height: number },
+  background: { r: number; g: number; b: number } = { r: 0, g: 255, b: 0 }
 ): { centerX: number; centerY: number } {
   let left = Number.POSITIVE_INFINITY;
   let top = Number.POSITIVE_INFINITY;
@@ -1326,7 +1331,7 @@ function findNonGreenBox(
       const red = raw[offset] ?? 0;
       const green = raw[offset + 1] ?? 0;
       const blue = raw[offset + 2] ?? 0;
-      if (red === 0 && green === 255 && blue === 0) {
+      if (red === background.r && green === background.g && blue === background.b) {
         continue;
       }
       left = Math.min(left, x);

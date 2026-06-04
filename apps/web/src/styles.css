@@ -366,6 +366,12 @@ h2 {
   justify-content: flex-start;
 }
 
+.module01-nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .nav-group-title {
   color: #8da1b7;
   font-size: 12px;

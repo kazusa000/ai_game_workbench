@@ -1016,13 +1016,16 @@ describe("App", () => {
     expect(baseTemplateButton.compareDocumentPosition(walkButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(walkButton.compareDocumentPosition(idleButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(idleButton.compareDocumentPosition(runButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(runButton.compareDocumentPosition(attackButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(attackButton.compareDocumentPosition(jumpButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(jumpButton.compareDocumentPosition(characterPreviewButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(runButton.compareDocumentPosition(jumpButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(jumpButton.compareDocumentPosition(attackButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(attackButton.compareDocumentPosition(characterPreviewButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(characterPreviewButton.compareDocumentPosition(godotExportButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(godotExportButton.compareDocumentPosition(settingsButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByText("流程")).toBeInTheDocument();
+    expect(screen.getByText("基础角色生成")).toBeInTheDocument();
+    expect(screen.getByText("进阶角色生成")).toBeInTheDocument();
+    expect(screen.getByText("预览与导出")).toBeInTheDocument();
     expect(screen.getByText("配置")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^一键生成角色$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^角色基准模板生成$/ })).not.toBeInTheDocument();
@@ -1030,8 +1033,10 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /^步行四方向$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^待机四方向$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^角色基准模板生成$/ })).not.toBeInTheDocument();
-    expect(screen.queryByText("基础角色生成")).not.toBeInTheDocument();
-    expect(screen.queryByText("进阶角色生成")).not.toBeInTheDocument();
+    expect(screen.getByText("基础角色生成").compareDocumentPosition(baseTemplateButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("进阶角色生成").compareDocumentPosition(runButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("预览与导出").compareDocumentPosition(characterPreviewButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("配置").compareDocumentPosition(settingsButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByText("模块 01 / 基准模板")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "基准模板" })).toBeInTheDocument();

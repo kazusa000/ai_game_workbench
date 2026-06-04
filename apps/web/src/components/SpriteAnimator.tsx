@@ -68,6 +68,18 @@ import {
 import { Module01Settings } from "./module01/Module01Settings";
 import { MODULE01_NAV_ITEMS, MODULE01_PAGE_LABELS, type Module01Page } from "./module01/module01Model";
 
+const MODULE01_NAV_GROUPS = [
+  { title: "流程", pageIds: ["one-click-character"] },
+  { title: "基础角色生成", pageIds: ["base-template", "walk", "idle"] },
+  { title: "进阶角色生成", pageIds: ["run", "jump", "attack-1"] },
+  { title: "预览与导出", pageIds: ["character-preview", "godot-export"] },
+  { title: "配置", pageIds: ["module-settings"] }
+] as const satisfies readonly { title: string; pageIds: readonly Module01Page[] }[];
+
+const MODULE01_NAV_ITEM_BY_ID = new Map<Module01Page, (typeof MODULE01_NAV_ITEMS)[number]>(
+  MODULE01_NAV_ITEMS.map((item) => [item.id, item])
+);
+
 interface SpriteAnimatorProps {
   defaultKeys: SavedAnimationKeys;
   onBack: () => void;
@@ -2156,29 +2168,27 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           </button>
           <span className="character-status">{characterStatus}</span>
         </section>
-        <div className="nav-group-title">流程</div>
-        {MODULE01_NAV_ITEMS.slice(0, 9).map((item) => (
-          <button
-            key={item.id}
-            className={["nav-item", activePage === item.id ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-            type="button"
-            onClick={() => setActivePage(item.id)}
-          >
-            <Module01NavIcon page={item.id} />
-            {item.label}
-          </button>
-        ))}
-        <div className="nav-group-title">配置</div>
-        {MODULE01_NAV_ITEMS.slice(9).map((item) => (
-          <button
-            key={item.id}
-            className={["nav-item", activePage === item.id ? "nav-item-active" : ""].filter(Boolean).join(" ")}
-            type="button"
-            onClick={() => setActivePage(item.id)}
-          >
-            <Module01NavIcon page={item.id} />
-            {item.label}
-          </button>
+        {MODULE01_NAV_GROUPS.map((group) => (
+          <div className="module01-nav-section" key={group.title}>
+            <div className="nav-group-title">{group.title}</div>
+            {group.pageIds.map((pageId) => {
+              const item = MODULE01_NAV_ITEM_BY_ID.get(pageId);
+              if (!item) {
+                return null;
+              }
+              return (
+                <button
+                  key={item.id}
+                  className={["nav-item", activePage === item.id ? "nav-item-active" : ""].filter(Boolean).join(" ")}
+                  type="button"
+                  onClick={() => setActivePage(item.id)}
+                >
+                  <Module01NavIcon page={item.id} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         ))}
       </aside>
 

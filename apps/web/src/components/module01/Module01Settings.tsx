@@ -81,7 +81,7 @@ export function Module01Settings({
           ) : null}
           {activePanel?.content}
           {activePanel ? (
-            <button className="tool-button" type="button" onClick={activePanel.onSave}>
+            <button className="tool-button" type="button" onClick={() => void activePanel.onSave()}>
               <Save size={16} /> {group.saveLabel}
             </button>
           ) : null}

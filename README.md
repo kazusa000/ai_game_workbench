@@ -37,6 +37,8 @@ STORAGE_DIR=./storage
 PORT=8787
 ```
 
+Relative `STORAGE_DIR` values are resolved from `apps/server`, so the default `./storage` is always `apps/server/storage` no matter where the server is started from. Generated AI images, downloaded AI videos, character assets, jobs, and provider settings all use that same storage root unless `STORAGE_DIR` is set to an absolute path.
+
 `ffmpeg-static` is installed for the test pipeline, so the e2e script does not require a global ffmpeg install.
 
 ## Commands

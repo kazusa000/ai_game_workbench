@@ -33,7 +33,7 @@ export function createApp(options: CreateAppOptions) {
     methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"]
   });
 
-  app.get("/api/health", async () => ({ ok: true }));
+  app.get("/api/health", async () => ({ ok: true, storageDir: options.storageDir }));
   registerProviderSettingsRoutes(app, {
     storageDir: options.storageDir,
     openRouterApiKey: options.openRouterApiKey,

@@ -11,7 +11,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$logDir = Join-Path $repoRoot "storage\logs\workbench"
+$serverStorageDir = Join-Path $repoRoot "apps\server\storage"
+$logDir = Join-Path $serverStorageDir "logs\workbench"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 function Resolve-NgrokExe {
@@ -26,10 +27,16 @@ function Resolve-NgrokExe {
   throw "ngrok.exe was not found. Install ngrok or put ngrok.exe at $localExe"
 }
 
-function Test-WorkbenchApi([int]$Port) {
+function Test-WorkbenchApi([int]$Port, [string]$ExpectedStorageDir) {
   try {
     $health = Invoke-RestMethod -Uri "http://127.0.0.1:${Port}/api/health" -Method Get -TimeoutSec 3
     if (-not $health.ok) {
+      return $false
+    }
+    if (-not $health.PSObject.Properties["storageDir"]) {
+      return $false
+    }
+    if ([string]$health.storageDir -ne $ExpectedStorageDir) {
       return $false
     }
     $characters = Invoke-RestMethod -Uri "http://127.0.0.1:${Port}/api/characters" -Method Get -TimeoutSec 3
@@ -98,10 +105,12 @@ $ngrokExe = if ($NoNgrok) { $null } else { Resolve-NgrokExe }
 $npmCmd = "npm.cmd"
 $normalizedNgrokUrl = $NgrokUrl.TrimEnd("/")
 $publicAssetBaseUrl = "$normalizedNgrokUrl/assets"
+$env:STORAGE_DIR = $serverStorageDir
 
 if ($Check) {
   [pscustomobject]@{
     repoRoot = $repoRoot
+    storage = $serverStorageDir
     server = "http://127.0.0.1:$ServerPort"
     web = "http://127.0.0.1:$WebPort"
     ngrok = if ($NoNgrok) { $null } else { $normalizedNgrokUrl }
@@ -112,13 +121,13 @@ if ($Check) {
   exit 0
 }
 
-if (-not (Test-WorkbenchApi $ServerPort)) {
+if (-not (Test-WorkbenchApi $ServerPort $serverStorageDir)) {
   if (Test-TcpPort $ServerPort) {
-    throw "Port $ServerPort is already in use, but it is not the AI Game Workbench API. Stop the process using that port or start the workbench with a different -ServerPort."
+    throw "Port $ServerPort is already in use, but it is not the AI Game Workbench API with storage $serverStorageDir. Stop the process using that port or start the workbench with a different -ServerPort."
   }
   $env:PUBLIC_ASSET_BASE_URL = $publicAssetBaseUrl
   Start-WorkbenchProcess "server" $npmCmd @("run", "dev:server") | Out-Null
-  Wait-Until { Test-WorkbenchApi $ServerPort } "server"
+  Wait-Until { Test-WorkbenchApi $ServerPort $serverStorageDir } "server"
 } else {
   Write-Host "Server is already running: http://127.0.0.1:$ServerPort"
 }

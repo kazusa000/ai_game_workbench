@@ -109,7 +109,7 @@ async function resizeImageToTarget(buffer: Buffer, targetSize: number, keyColor:
     .toBuffer();
 }
 
-function resolveCodexCommand(): CodexCommand {
+export function resolveCodexCommand(): CodexCommand {
   const configured = process.env.LOCAL_CODEX_BIN?.trim();
   if (configured) {
     if (configured.endsWith(".js")) {
@@ -123,6 +123,15 @@ function resolveCodexCommand(): CodexCommand {
       command: configured,
       argsPrefix: [],
       label: configured
+    };
+  }
+
+  const desktopCodexExe = findDesktopCodexExe();
+  if (desktopCodexExe) {
+    return {
+      command: desktopCodexExe,
+      argsPrefix: [],
+      label: desktopCodexExe
     };
   }
 
@@ -140,6 +149,32 @@ function resolveCodexCommand(): CodexCommand {
     argsPrefix: [],
     label: "codex"
   };
+}
+
+function findDesktopCodexExe(): string | undefined {
+  const localAppData = process.env.LOCALAPPDATA;
+  if (!localAppData) {
+    return undefined;
+  }
+  const binRoot = join(localAppData, "OpenAI", "Codex", "bin");
+  if (!existsSync(binRoot)) {
+    return undefined;
+  }
+  const candidates: GeneratedImageSnapshot[] = [];
+  const directExe = join(binRoot, "codex.exe");
+  if (existsSync(directExe)) {
+    candidates.push({ path: directExe, mtimeMs: statSync(directExe).mtimeMs });
+  }
+  for (const child of readdirSync(binRoot, { withFileTypes: true })) {
+    if (!child.isDirectory()) {
+      continue;
+    }
+    const candidate = join(binRoot, child.name, "codex.exe");
+    if (existsSync(candidate)) {
+      candidates.push({ path: candidate, mtimeMs: statSync(candidate).mtimeMs });
+    }
+  }
+  return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.path;
 }
 
 function findCachedCodexJs(): string | undefined {

@@ -1102,6 +1102,58 @@ describe("generation route", () => {
     await app.close();
   });
 
+  it("submits APIMart Seedance 1.0 Pro Quality videos with fixed square first and last frame", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "https://example.com/walk.png") {
+        return new Response(new Uint8Array([1]), {
+          headers: {
+            "content-type": "image/png"
+          }
+        });
+      }
+      return Response.json({ code: 200, data: [{ task_id: "task_seedance_1_quality", status: "submitted" }] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const app = createApp({
+      ffmpegPath: "ffmpeg",
+      port: 8787,
+      storageDir: makeStorageDir()
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generation/video",
+      headers: {
+        "x-ai-provider-id": "apimart",
+        "x-ai-provider-api-key": "sk-apimart-test"
+      },
+      payload: {
+        model: "apimart/seedance-1.0-pro-quality",
+        prompt: "fixed camera walk cycle",
+        firstFrameUrl: "https://example.com/walk.png",
+        durationSeconds: 2,
+        resolution: "480p"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(requestBody).toMatchObject({
+      model: "doubao-seedance-1-0-pro-quality",
+      duration: 2,
+      resolution: "480p",
+      aspect_ratio: "1:1",
+      camerafixed: true,
+      image_with_roles: [
+        { url: "https://example.com/walk.png", role: "first_frame" },
+        { url: "https://example.com/walk.png", role: "last_frame" }
+      ]
+    });
+
+    await app.close();
+  });
+
   it("polls a completed OpenRouter video job and stores source.mp4 under storage jobs", async () => {
     const storageDir = makeStorageDir();
     const fetchMock = vi.fn(async (url: string) => {

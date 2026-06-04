@@ -47,6 +47,7 @@ import {
 import type { ProviderRequestAuth } from "../providerSettings";
 
 const BUILT_IN_STYLE_REFERENCE_CONTENT_TYPE = "image/png";
+const APIMART_SEEDANCE_1_PRO_QUALITY_MODEL_ID = "apimart/seedance-1.0-pro-quality";
 
 const DIRECTION_REFERENCES = {
   idle: {
@@ -313,6 +314,10 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
     }
     if (resolvedModel.provider.kind !== "openrouter" && resolvedModel.provider.kind !== "apimart") {
       return reply.code(400).send({ error: "Only OpenRouter and APIMart video models are supported" });
+    }
+    const actionKind = readActionKind(request.query) ?? readActionKind(request.headers);
+    if (resolvedModel.model.id === APIMART_SEEDANCE_1_PRO_QUALITY_MODEL_ID && actionKind === "attack-1") {
+      return reply.code(400).send({ error: "Seedance 1.0 Pro Quality is only supported for walk, run, and jump videos" });
     }
     const apiKey = resolvedModel.apiKey ?? "";
     const urlError = validatePublicHttpsImageUrl(input.firstFrameUrl);

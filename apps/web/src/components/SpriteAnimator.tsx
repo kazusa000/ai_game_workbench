@@ -339,6 +339,14 @@ const VIDEO_MODELS = [
     defaultResolution: "720p"
   },
   {
+    id: "apimart/seedance-1.0-pro-quality",
+    label: "Seedance 1.0 Pro Quality",
+    durationOptions: rangeInclusive(2, 12),
+    defaultDurationSeconds: 5,
+    resolutionOptions: ["480p", "720p", "1080p"],
+    defaultResolution: "720p"
+  },
+  {
     id: "bytedance/seedance-2.0",
     label: "Seedance 2.0",
     durationOptions: rangeInclusive(4, 15),
@@ -348,6 +356,7 @@ const VIDEO_MODELS = [
   }
 ] satisfies readonly VideoModelOption[];
 const DEFAULT_VIDEO_MODEL = "apimart/seedance-2.0";
+const APIMART_SEEDANCE_1_PRO_QUALITY_MODEL = "apimart/seedance-1.0-pro-quality";
 const FPS_MAX = 300;
 const GODOT_EXPORT_SIZE_OPTIONS = [256, 384, 512, 1024] as const;
 type GodotExportSize = (typeof GODOT_EXPORT_SIZE_OPTIONS)[number];
@@ -1786,6 +1795,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     }
     if (actionKind === "attack-1" && !state.middleFramePreview) {
       updateAdvancedAction(actionKind, { status: "请先生成攻击中间帧，再提交攻击视频任务。" });
+      return;
+    }
+    if (actionKind === "attack-1" && videoModel === APIMART_SEEDANCE_1_PRO_QUALITY_MODEL) {
+      updateAdvancedAction(actionKind, { status: "Seedance 1.0 Pro Quality 只用于步行、跑步和跳跃，攻击 1 请切换到 Seedance 2.0。" });
       return;
     }
     const middleFrameUrl = state.middleFramePreview?.publicUrl ?? state.middleFramePreview?.url ?? "";

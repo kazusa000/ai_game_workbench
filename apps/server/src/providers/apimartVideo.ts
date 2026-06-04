@@ -15,6 +15,8 @@ export interface ApimartVideoClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+const APIMART_SEEDANCE_1_PRO_QUALITY_MODEL = "doubao-seedance-1-0-pro-quality";
+
 export class ApimartVideoError extends Error {
   readonly statusCode: number;
   readonly responseBody: string;
@@ -30,7 +32,8 @@ export class ApimartVideoError extends Error {
 export function buildApimartVideoGenerationPayload(input: BuildApimartVideoGenerationPayloadInput) {
   const referenceUrls = (input.inputReferenceUrls ?? []).map((url) => url.trim()).filter(Boolean);
   const firstFrameUrl = input.firstFrameUrl.trim();
-  const lastFrameUrl = input.lastFrameUrl?.trim();
+  const isSeedance1ProQuality = input.model === APIMART_SEEDANCE_1_PRO_QUALITY_MODEL;
+  const lastFrameUrl = input.lastFrameUrl?.trim() || (isSeedance1ProQuality ? firstFrameUrl : undefined);
   const imageWithRoles = [
     { url: firstFrameUrl, role: "first_frame" },
     ...(lastFrameUrl ? [{ url: lastFrameUrl, role: "last_frame" }] : [])
@@ -40,8 +43,10 @@ export function buildApimartVideoGenerationPayload(input: BuildApimartVideoGener
     prompt: input.prompt,
     resolution: input.resolution ?? "720p",
     size: "adaptive",
+    aspect_ratio: "1:1",
     duration: input.durationSeconds ?? 5,
     generate_audio: false,
+    ...(isSeedance1ProQuality ? { camerafixed: true } : {}),
     ...(input.referenceOnly && referenceUrls.length > 0
       ? { image_urls: referenceUrls }
       : { image_with_roles: imageWithRoles })

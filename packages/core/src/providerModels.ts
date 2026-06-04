@@ -168,6 +168,18 @@ export const DEFAULT_PROVIDER_MODEL_PRESETS: readonly ProviderModelPreset[] = [
     defaultDurationSeconds: 4,
     resolutionOptions: ["480p", "720p", "1080p"],
     defaultResolution: "720p"
+  },
+  {
+    id: "apimart/seedance-1.0-pro-quality",
+    providerId: APIMART_PROVIDER_ID,
+    upstreamModel: "doubao-seedance-1-0-pro-quality",
+    label: "Seedance 1.0 Pro Quality",
+    capability: "video",
+    enabled: true,
+    durationOptions: rangeInclusive(2, 12),
+    defaultDurationSeconds: 5,
+    resolutionOptions: ["480p", "720p", "1080p"],
+    defaultResolution: "720p"
   }
 ];
 

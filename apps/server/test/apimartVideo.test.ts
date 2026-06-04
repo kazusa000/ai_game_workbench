@@ -93,4 +93,24 @@ describe("APIMart video provider client", () => {
       ]
     });
   });
+
+  it("locks Seedance 1.0 Pro Quality to square fixed-camera first and last frame", () => {
+    expect(buildApimartVideoGenerationPayload({
+      model: "doubao-seedance-1-0-pro-quality",
+      prompt: "fixed camera walk cycle",
+      firstFrameUrl: "https://assets.example.com/walk.png",
+      durationSeconds: 12,
+      resolution: "1080p"
+    })).toMatchObject({
+      model: "doubao-seedance-1-0-pro-quality",
+      duration: 12,
+      resolution: "1080p",
+      aspect_ratio: "1:1",
+      camerafixed: true,
+      image_with_roles: [
+        { url: "https://assets.example.com/walk.png", role: "first_frame" },
+        { url: "https://assets.example.com/walk.png", role: "last_frame" }
+      ]
+    });
+  });
 });

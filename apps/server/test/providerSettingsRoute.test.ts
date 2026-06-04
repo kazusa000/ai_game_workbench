@@ -42,7 +42,8 @@ describe("provider settings routes", () => {
     ]);
     expect(response.json().videoModels.map((model: { id: string }) => model.id)).toEqual([
       "bytedance/seedance-2.0",
-      "apimart/seedance-2.0"
+      "apimart/seedance-2.0",
+      "apimart/seedance-1.0-pro-quality"
     ]);
     expect(response.json()).toMatchObject({
       defaults: {

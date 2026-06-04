@@ -734,7 +734,7 @@ async function sliceSpriteSheetByForegroundRows(
       .ensureAlpha()
       .raw()
       .toBuffer();
-    const segments = findForegroundColumnSegments(rowBuffer, sheetWidth, height, key, options.tolerance);
+    const segments = findForegroundColumnSegmentsForExpectedColumns(rowBuffer, sheetWidth, height, key, options.tolerance, options.columns);
     if (segments.length < 2) {
       return [];
     }
@@ -818,7 +818,8 @@ function findForegroundColumnSegments(
   width: number,
   height: number,
   key: RgbColor,
-  tolerance: number
+  tolerance: number,
+  maxGap = 18
 ): Array<{ left: number; right: number }> {
   const occupied = new Uint8Array(width);
   for (let x = 0; x < width; x += 1) {
@@ -848,7 +849,7 @@ function findForegroundColumnSegments(
     if (occupied[x] !== 1) {
       continue;
     }
-    if (!current || (lastOccupied >= 0 && x - lastOccupied > 18)) {
+    if (!current || (lastOccupied >= 0 && x - lastOccupied > maxGap)) {
       if (current) {
         merged.push(current);
       }
@@ -862,6 +863,31 @@ function findForegroundColumnSegments(
     merged.push(current);
   }
   return merged.filter((segment) => segment.right - segment.left + 1 >= 12);
+}
+
+function findForegroundColumnSegmentsForExpectedColumns(
+  raw: Buffer,
+  width: number,
+  height: number,
+  key: RgbColor,
+  tolerance: number,
+  expectedColumns: number
+): Array<{ left: number; right: number }> {
+  const gapAttempts = [18, 14, 10];
+  let best = findForegroundColumnSegments(raw, width, height, key, tolerance, gapAttempts[0]);
+  if (expectedColumns <= 0 || best.length >= expectedColumns) {
+    return best;
+  }
+  for (const gap of gapAttempts.slice(1)) {
+    const segments = findForegroundColumnSegments(raw, width, height, key, tolerance, gap);
+    if (segments.length === expectedColumns) {
+      return segments;
+    }
+    if (segments.length > best.length && segments.length <= expectedColumns) {
+      best = segments;
+    }
+  }
+  return best;
 }
 
 function getSpriteSheetKeyTolerance(tolerance: number): number {

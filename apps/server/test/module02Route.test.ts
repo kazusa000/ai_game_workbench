@@ -332,6 +332,59 @@ describe("module 02 pixel character routes", () => {
     await app.close();
   });
 
+  it("keeps ten walk frames when adjacent down-facing sprites have a narrow gap", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/module02/characters",
+      payload: { name: "hero" }
+    });
+    await mkdir(join(storageDir, "characters_pixel", "hero", "walk-template"), { recursive: true });
+    writeFileSync(join(storageDir, "characters_pixel", "hero", "walk-template", "output.png"), await createNarrowGapTenFrameWalkSheet());
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/module02/processing/sprite-sheet",
+      payload: {
+        pixelCharacterId: "hero",
+        sliceKind: "walk",
+        sourceUrl: "/module02/characters/hero/walk-template/output.png",
+        rows: 4,
+        columns: 10,
+        keyColor: "#00ff00",
+        tolerance: 8,
+        centerFrames: true,
+        centerMode: "row",
+        outputFrameWidth: 64,
+        outputFrameHeight: 128,
+        normalizeSubjectScale: true,
+        targetSubjectHeight: 96,
+        directionLayout: "grid"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      frameCount: 40
+    });
+    for (let row = 1; row <= 4; row += 1) {
+      expect(existsSync(join(
+        storageDir,
+        "characters_pixel",
+        "hero",
+        "slices",
+        "walk",
+        "frames",
+        `row_${String(row).padStart(3, "0")}`,
+        "frame_010.png"
+      ))).toBe(true);
+    }
+
+    await app.close();
+  });
+
   it("exports four cleaned fixed-size idle direction frames from a 2x2 base template", async () => {
     const storageDir = makeStorageDir();
     const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
@@ -459,6 +512,54 @@ async function createUnevenWalkSheet(): Promise<Buffer> {
     create: {
       width: 1024,
       height: 512,
+      channels: 4,
+      background: { r: 0, g: 255, b: 0, alpha: 1 }
+    }
+  })
+    .composite(composites)
+    .png()
+    .toBuffer();
+}
+
+async function createNarrowGapTenFrameWalkSheet(): Promise<Buffer> {
+  const wideSprite = await sharp({
+    create: {
+      width: 118,
+      height: 170,
+      channels: 4,
+      background: { r: 180, g: 0, b: 0, alpha: 1 }
+    }
+  }).png().toBuffer();
+  const narrowSprite = await sharp({
+    create: {
+      width: 82,
+      height: 150,
+      channels: 4,
+      background: { r: 180, g: 0, b: 0, alpha: 1 }
+    }
+  }).png().toBuffer();
+  const composites = [];
+  const downLefts = [32, 175, 314, 457, 598, 735, 873, 1011, 1145, 1280];
+  for (let column = 0; column < downLefts.length; column += 1) {
+    composites.push({
+      input: wideSprite,
+      left: downLefts[column] ?? 32,
+      top: 48
+    });
+  }
+  for (let row = 1; row < 4; row += 1) {
+    for (let column = 0; column < 10; column += 1) {
+      composites.push({
+        input: narrowSprite,
+        left: 44 + (column * 137),
+        top: 48 + (row * 240)
+      });
+    }
+  }
+  return sharp({
+    create: {
+      width: 1402,
+      height: 1122,
       channels: 4,
       background: { r: 0, g: 255, b: 0, alpha: 1 }
     }

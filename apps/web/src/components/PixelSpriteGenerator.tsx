@@ -1157,7 +1157,7 @@ function groupFramesByRow(frames: readonly PixelCharacterFrameAsset[]): Map<numb
 }
 
 function directionToRow(direction: DirectionKey): number {
-  return DIRECTION_ROWS.find((item) => item.key === direction)?.row ?? 0;
+  return (DIRECTION_ROWS.find((item) => item.key === direction)?.row ?? 0) + 1;
 }
 
 function keyToDirection(key: string): DirectionKey | undefined {

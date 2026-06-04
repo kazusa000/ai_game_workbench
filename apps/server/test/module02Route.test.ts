@@ -332,7 +332,7 @@ describe("module 02 pixel character routes", () => {
     await app.close();
   });
 
-  it("exports one cleaned fixed-size idle frame from a 2x2 base template", async () => {
+  it("exports four cleaned fixed-size idle direction frames from a 2x2 base template", async () => {
     const storageDir = makeStorageDir();
     const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });
     await app.ready();
@@ -367,17 +367,30 @@ describe("module 02 pixel character routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      frameCount: 1,
+      frameCount: 4,
       frames: [
-        expect.objectContaining({ row: 1, index: 1, width: 64, height: 128 })
+        expect.objectContaining({ row: 1, index: 1, width: 64, height: 128 }),
+        expect.objectContaining({ row: 2, index: 1, width: 64, height: 128 }),
+        expect.objectContaining({ row: 3, index: 1, width: 64, height: 128 }),
+        expect.objectContaining({ row: 4, index: 1, width: 64, height: 128 })
       ]
     });
-    expect(existsSync(join(storageDir, "characters_pixel", "hero", "slices", "idle", "frames", "row_002"))).toBe(false);
-    const output = await sharp(readFileSync(join(storageDir, "characters_pixel", "hero", "slices", "idle", "frames", "row_001", "frame_001.png")))
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    expect(findAlphaBox(output.data, output.info.width, output.info.height)).toMatchObject({ height: 96 });
-    expect(countGreenScreenPixels(output.data)).toBe(0);
+    for (let row = 1; row <= 4; row += 1) {
+      const output = await sharp(readFileSync(join(
+        storageDir,
+        "characters_pixel",
+        "hero",
+        "slices",
+        "idle",
+        "frames",
+        `row_${String(row).padStart(3, "0")}`,
+        "frame_001.png"
+      )))
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      expect(findAlphaBox(output.data, output.info.width, output.info.height)).toMatchObject({ height: 96 });
+      expect(countGreenScreenPixels(output.data)).toBe(0);
+    }
 
     await app.close();
   });

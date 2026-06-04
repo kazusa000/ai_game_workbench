@@ -103,15 +103,22 @@ beforeEach(() => {
           },
           slices: {
             idle: {
-              frames: [
-                { row: 1, index: 1, width: 64, height: 128, url: `${pixelCharacterBase}/slices/idle/frames/row_001/frame_001.png` }
-              ]
+              frames: [1, 2, 3, 4].map((row) => ({
+                row,
+                index: 1,
+                width: 64,
+                height: 128,
+                url: `${pixelCharacterBase}/slices/idle/frames/row_${String(row).padStart(3, "0")}/frame_001.png`
+              }))
             },
             walk: {
-              frames: [
-                { row: 1, index: 1, width: 64, height: 128, url: `${pixelCharacterBase}/slices/walk/frames/row_001/frame_001.png` },
-                { row: 1, index: 2, width: 64, height: 128, url: `${pixelCharacterBase}/slices/walk/frames/row_001/frame_002.png` }
-              ]
+              frames: [1, 2, 3, 4].flatMap((row) => [1, 2].map((index) => ({
+                row,
+                index,
+                width: 64,
+                height: 128,
+                url: `${pixelCharacterBase}/slices/walk/frames/row_${String(row).padStart(3, "0")}/frame_${String(index).padStart(3, "0")}.png`
+              })))
             }
           }
         }
@@ -166,15 +173,15 @@ beforeEach(() => {
     if (url.endsWith("/api/module02/processing/sprite-sheet")) {
       const body = JSON.parse(String(init?.body ?? "{}"));
       const sliceKind = body.sliceKind ?? "walk";
+      const frames = sliceKind === "idle"
+        ? [1, 2, 3, 4].map((row) => ({ row, index: 1, width: 64, height: 128, url: `${pixelCharacterBase}/slices/${sliceKind}/frames/row_${String(row).padStart(3, "0")}/frame_001.png` }))
+        : [1, 2, 3, 4].flatMap((row) => [1, 2].map((index) => ({ row, index, width: 64, height: 128, url: `${pixelCharacterBase}/slices/${sliceKind}/frames/row_${String(row).padStart(3, "0")}/frame_${String(index).padStart(3, "0")}.png` })));
       return jsonResponse({
         jobId: `module02-character-pixel-hero-${sliceKind}`,
         rows: body.rows,
         columns: body.columns,
-        frameCount: 2,
-        frames: [
-          { row: 1, index: 1, width: 64, height: 128, url: `${pixelCharacterBase}/slices/${sliceKind}/frames/row_001/frame_001.png` },
-          { row: 1, index: 2, width: 64, height: 128, url: `${pixelCharacterBase}/slices/${sliceKind}/frames/row_001/frame_002.png` }
-        ]
+        frameCount: frames.length,
+        frames
       });
     }
     if (url.endsWith("/api/module01/workflow-config")) {
@@ -957,6 +964,25 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "角色预览" }));
     expect(screen.getAllByText("idle").length).toBeGreaterThan(0);
     expect(screen.getAllByText("walk").length).toBeGreaterThan(0);
+    expect(screen.getByAltText("像素角色预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${pixelCharacterBase}/slices/idle/frames/row_001/frame_001.png`)
+    );
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() => expect(screen.getByAltText("像素角色预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${pixelCharacterBase}/slices/walk/frames/row_001/`)
+    ));
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(screen.getByAltText("像素角色预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${pixelCharacterBase}/slices/walk/frames/row_002/`)
+    ));
+    fireEvent.keyUp(window, { key: "a" });
+    await waitFor(() => expect(screen.getByAltText("像素角色预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${pixelCharacterBase}/slices/idle/frames/row_002/frame_001.png`)
+    ));
   });
 
   it("opens module 01 with two-level navigation and the base template page", () => {

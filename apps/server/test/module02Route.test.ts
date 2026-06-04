@@ -201,6 +201,46 @@ describe("module 02 pixel character routes", () => {
     await app.close();
   });
 
+  it("returns local image generation errors instead of Fastify internal errors", async () => {
+    const storageDir = makeStorageDir();
+    const app = createApp({
+      storageDir,
+      port: 8787,
+      ffmpegPath: "ffmpeg",
+      localCodexImageGenerator: async () => {
+        throw new Error("Local Codex did not create an image file.");
+      }
+    });
+    await app.ready();
+    await app.inject({
+      method: "POST",
+      url: "/api/module02/characters",
+      payload: { name: "hero" }
+    });
+    await mkdir(join(storageDir, "characters_pixel", "hero", "base-template"), { recursive: true });
+    writeFileSync(join(storageDir, "characters_pixel", "hero", "base-template", "character-reference.png"), Buffer.from([9, 9, 9]));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/module02/generation/sprite-sheet",
+      payload: {
+        actionId: "idle",
+        model: "local/gpt-image-2",
+        constraintPrompt: "generate a pixel character base template",
+        keyColor: "#00ff00",
+        pixelCharacterId: "hero",
+        characterReferenceUrl: "/module02/characters/hero/base-template/character-reference.png"
+      }
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "Local Codex did not create an image file."
+    });
+
+    await app.close();
+  });
+
   it("cuts module 02 sprite sheets from module02 character URLs into character slice frames", async () => {
     const storageDir = makeStorageDir();
     const app = createApp({ storageDir, port: 8787, ffmpegPath: "ffmpeg" });

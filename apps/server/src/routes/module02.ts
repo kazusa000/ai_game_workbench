@@ -956,5 +956,10 @@ function sendGenerationError(error: unknown, reply: { code: (statusCode: number)
       providerStatus: error.statusCode
     });
   }
+  if (error instanceof Error) {
+    return reply.code(500).send({
+      error: error.message
+    });
+  }
   throw error;
 }

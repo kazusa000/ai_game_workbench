@@ -74,6 +74,26 @@ export async function removeCharacterFilesByStem(
     .map((entry) => rm(resolveCharacterPath(storageDir, characterId, ...directorySegments, entry.name), { force: true })));
 }
 
+export async function findCharacterFileByStem(
+  storageDir: string,
+  characterId: string,
+  directorySegments: readonly string[],
+  stem: string
+): Promise<{ fileName: string; path: string } | undefined> {
+  const directory = resolveCharacterPath(storageDir, characterId, ...directorySegments);
+  if (!existsSync(directory)) {
+    return undefined;
+  }
+  const entries = await readdir(directory, { withFileTypes: true });
+  const fileName = entries
+    .filter((entry) => entry.isFile() && entry.name.startsWith(`${stem}.`))
+    .map((entry) => entry.name)
+    .sort()[0];
+  return fileName
+    ? { fileName, path: resolveCharacterPath(storageDir, characterId, ...directorySegments, fileName) }
+    : undefined;
+}
+
 export async function resetCharacterDirectory(
   storageDir: string,
   characterId: string,

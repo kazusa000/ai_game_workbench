@@ -6,6 +6,7 @@ import {
   createCharacterFolder,
   deleteCharacterFolder,
   ensureCharacterFolder,
+  findCharacterFileByStem,
   listCharacterFolders,
   resolveCharacterPath,
   toCharacterUrl
@@ -72,8 +73,8 @@ async function buildCharacterAssets(storageDir: string, characterId: string) {
     },
     baseCharacter: {
       directionBaseTemplate: await findCharacterAssetByStem(storageDir, characterId, ["base-character", "direction-templates"], "base-template"),
-      idleDirectionTemplate: findCharacterAsset(storageDir, characterId, ["base-character", "direction-templates"], "idle-4dir.png"),
-      walkDirectionTemplate: findCharacterAsset(storageDir, characterId, ["base-character", "direction-templates"], "walk-4dir.png"),
+      idleDirectionTemplate: await findCharacterAssetByStem(storageDir, characterId, ["base-character", "direction-templates"], "idle-4dir"),
+      walkDirectionTemplate: await findCharacterAssetByStem(storageDir, characterId, ["base-character", "direction-templates"], "walk-4dir"),
       walkVideoInput: await findCharacterAssetByStem(storageDir, characterId, ["base-character", "walk-video"], "input-4dir"),
       walkVideoSource: findCharacterAsset(storageDir, characterId, ["base-character", "walk-video"], "source.mp4"),
       loopExport: await buildLoopExportAsset(storageDir, characterId)
@@ -108,18 +109,10 @@ async function findCharacterAssetByStem(
   directorySegments: readonly string[],
   stem: string
 ): Promise<CharacterAssetFile | undefined> {
-  const directory = resolveCharacterPath(storageDir, characterId, ...directorySegments);
-  if (!existsSync(directory)) {
-    return undefined;
-  }
-  const entries = await readdir(directory, { withFileTypes: true });
-  const match = entries
-    .filter((entry) => entry.isFile() && entry.name.startsWith(`${stem}.`))
-    .map((entry) => entry.name)
-    .sort()[0];
+  const match = await findCharacterFileByStem(storageDir, characterId, directorySegments, stem);
   return match ? {
-    fileName: match,
-    url: toCharacterUrl(characterId, ...directorySegments, match)
+    fileName: match.fileName,
+    url: toCharacterUrl(characterId, ...directorySegments, match.fileName)
   } : undefined;
 }
 
@@ -189,7 +182,7 @@ async function buildLoopExportAsset(storageDir: string, characterId: string) {
 
 async function buildAdvancedActionAssets(storageDir: string, characterId: string, actionKind: "run" | "attack-1" | "jump") {
   const keyframe = actionKind === "run"
-    ? findCharacterAsset(storageDir, characterId, ["advanced-character", actionKind], "keyframe-4dir.png")
+    ? await findCharacterAssetByStem(storageDir, characterId, ["advanced-character", actionKind], "keyframe-4dir")
     : undefined;
   const videoInput = await findCharacterAssetByStem(storageDir, characterId, ["advanced-character", actionKind, "video"], "input-4dir");
   const videoSource = findCharacterAsset(storageDir, characterId, ["advanced-character", actionKind, "video"], "source.mp4");

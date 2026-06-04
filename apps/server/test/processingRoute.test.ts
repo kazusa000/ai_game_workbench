@@ -190,7 +190,7 @@ describe("processing route", () => {
 
     const templateDir = join(storageDir, "characters", "hero", "base-character", "direction-templates");
     mkdirSync(templateDir, { recursive: true });
-    writeFileSync(join(templateDir, "idle-4dir.png"), await createTestIdleSheet());
+    writeFileSync(join(templateDir, "idle-4dir.jpg"), await createTestIdleSheet());
 
     const response = await app.inject({
       method: "POST",
@@ -224,7 +224,7 @@ describe("processing route", () => {
 
     const templateDir = join(storageDir, "characters", "hero", "base-character", "direction-templates");
     mkdirSync(templateDir, { recursive: true });
-    writeFileSync(join(templateDir, "idle-4dir.png"), await createTestIdleSheet());
+    writeFileSync(join(templateDir, "idle-4dir.webp"), await createTestIdleSheet());
     await writeWalkTransparentReferences(storageDir, "hero");
 
     const response = await app.inject({

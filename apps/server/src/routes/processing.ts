@@ -28,6 +28,7 @@ import {
 import type { AppConfig } from "../config";
 import {
   ensureCharacterFolder,
+  findCharacterFileByStem,
   resetCharacterDirectory,
   resolveCharacterPath,
   toCharacterUrl
@@ -44,6 +45,10 @@ type PreparedTransparentFrame = {
   centered: Buffer;
   transparent: Buffer;
 };
+
+async function findDirectionTemplateFile(storageDir: string, characterId: string, stem: "idle-4dir" | "walk-4dir") {
+  return findCharacterFileByStem(storageDir, characterId, ["base-character", "direction-templates"], stem);
+}
 
 export function registerProcessingRoutes(app: FastifyInstance, config: ProcessingRouteConfig): void {
   app.get("/api/processing/capabilities", async () => ({
@@ -379,8 +384,8 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       right: "右方向"
     } satisfies Record<FourDirectionKey, string>;
 
-    const idleTemplatePath = resolveCharacterPath(config.storageDir, characterId, "base-character", "direction-templates", "idle-4dir.png");
-    if (!existsSync(idleTemplatePath)) {
+    const idleTemplate = await findDirectionTemplateFile(config.storageDir, characterId, "idle-4dir");
+    if (!idleTemplate) {
       return reply.code(404).send({ error: `缺少待机四方向图：storage/characters/${characterId}/base-character/direction-templates/idle-4dir.png` });
     }
 
@@ -435,11 +440,11 @@ export function registerProcessingRoutes(app: FastifyInstance, config: Processin
       return reply.code(400).send({ error: error instanceof Error ? error.message : "请先创建或选择角色文件夹。" });
     }
     const directionKeys: readonly FourDirectionKey[] = ["down", "up", "left", "right"];
-    const idleTemplatePath = resolveCharacterPath(config.storageDir, characterId, "base-character", "direction-templates", "idle-4dir.png");
-    if (!existsSync(idleTemplatePath)) {
+    const idleTemplate = await findDirectionTemplateFile(config.storageDir, characterId, "idle-4dir");
+    if (!idleTemplate) {
       return reply.code(404).send({ error: `missing idle template: storage/characters/${characterId}/base-character/direction-templates/idle-4dir.png` });
     }
-    const idleBuffers = await splitFourDirectionFrameBuffer(await readFile(idleTemplatePath));
+    const idleBuffers = await splitFourDirectionFrameBuffer(await readFile(idleTemplate.path));
     const firstMetadata = await sharp(idleBuffers.down).metadata();
     if (!firstMetadata.width || !firstMetadata.height) {
       return reply.code(400).send({ error: "idle frame dimensions are invalid" });
@@ -1469,8 +1474,8 @@ async function buildIdleDirectionExport(input: {
   frames: { key: FourDirectionKey; label: string; index: number; url: string }[];
   spriteSheetUrl: string;
 }> {
-  const idleTemplatePath = resolveCharacterPath(input.config.storageDir, input.characterId, "base-character", "direction-templates", "idle-4dir.png");
-  if (!existsSync(idleTemplatePath)) {
+  const idleTemplate = await findDirectionTemplateFile(input.config.storageDir, input.characterId, "idle-4dir");
+  if (!idleTemplate) {
     throw new Error(`缺少待机四方向图：storage/characters/${input.characterId}/base-character/direction-templates/idle-4dir.png`);
   }
 
@@ -1480,7 +1485,7 @@ async function buildIdleDirectionExport(input: {
   await mkdir(idleTransparentDir, { recursive: true });
   await mkdir(exportDir, { recursive: true });
   const idleBuffers = await alignIdleFourDirectionSheetToWalkBuffers(
-    await readFile(idleTemplatePath),
+    await readFile(idleTemplate.path),
     input.transparentBuffersByDirection,
     {
       keyColor: input.keyColor,

@@ -61,19 +61,21 @@ describe("character assets route", () => {
     await mkdir(join(characterRoot, "base-character", "loop-export", "transparent", "down"), { recursive: true });
     await mkdir(join(characterRoot, "base-character", "loop-export", "idle", "transparent"), { recursive: true });
     await mkdir(join(characterRoot, "base-character", "loop-export", "exports"), { recursive: true });
+    await mkdir(join(characterRoot, "advanced-character", "run"), { recursive: true });
     await mkdir(join(characterRoot, "advanced-character", "attack-1", "midframe"), { recursive: true });
     await mkdir(join(characterRoot, "advanced-character", "attack-1", "reference"), { recursive: true });
     await writeFile(join(characterRoot, "base-template", "character-reference.webp"), "reference");
     await writeFile(join(characterRoot, "base-template", "output.png"), "output");
     await writeFile(join(characterRoot, "base-character", "direction-templates", "base-template.png"), "direction-base");
-    await writeFile(join(characterRoot, "base-character", "direction-templates", "idle-4dir.png"), "idle");
-    await writeFile(join(characterRoot, "base-character", "direction-templates", "walk-4dir.png"), "walk");
+    await writeFile(join(characterRoot, "base-character", "direction-templates", "idle-4dir.jpg"), "idle");
+    await writeFile(join(characterRoot, "base-character", "direction-templates", "walk-4dir.webp"), "walk");
     await writeFile(join(characterRoot, "base-character", "walk-video", "input-4dir.png"), "video-input");
     await writeFile(join(characterRoot, "base-character", "walk-video", "source.mp4"), "video");
     await writeFile(join(characterRoot, "base-character", "loop-export", "transparent", "down", "frame_002.png"), "frame");
     await writeFile(join(characterRoot, "base-character", "loop-export", "idle", "transparent", "down.png"), "idle-down");
     await writeFile(join(characterRoot, "base-character", "loop-export", "exports", "sprite-sheet.png"), "sprite");
     await writeFile(join(characterRoot, "base-character", "loop-export", "exports", "idle-4dir-sprite-sheet.png"), "idle-sheet");
+    await writeFile(join(characterRoot, "advanced-character", "run", "keyframe-4dir.jpg"), "run-keyframe");
     await writeFile(join(characterRoot, "advanced-character", "attack-1", "midframe", "middle-4dir.png"), "middle");
     await writeFile(join(characterRoot, "advanced-character", "attack-1", "reference", "reference.png"), "old-reference");
 
@@ -101,10 +103,10 @@ describe("character assets route", () => {
             url: "/characters/hero/base-character/direction-templates/base-template.png"
           },
           idleDirectionTemplate: {
-            url: "/characters/hero/base-character/direction-templates/idle-4dir.png"
+            url: "/characters/hero/base-character/direction-templates/idle-4dir.jpg"
           },
           walkDirectionTemplate: {
-            url: "/characters/hero/base-character/direction-templates/walk-4dir.png"
+            url: "/characters/hero/base-character/direction-templates/walk-4dir.webp"
           },
           walkVideoInput: {
             url: "/characters/hero/base-character/walk-video/input-4dir.png"
@@ -124,6 +126,10 @@ describe("character assets route", () => {
     expect(response.json().assets.advancedCharacter.attack1.middleFrame).toEqual({
       fileName: "middle-4dir.png",
       url: "/characters/hero/advanced-character/attack-1/midframe/middle-4dir.png"
+    });
+    expect(response.json().assets.advancedCharacter.run.keyframe).toEqual({
+      fileName: "keyframe-4dir.jpg",
+      url: "/characters/hero/advanced-character/run/keyframe-4dir.jpg"
     });
     expect(response.json().assets.advancedCharacter.attack1.reference).toBeUndefined();
     expect(response.json().assets.baseCharacter.loopExport.directions[0].transparentFrames).toEqual([

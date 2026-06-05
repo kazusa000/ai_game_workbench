@@ -18,15 +18,23 @@ function makeStorageDir() {
   return dir;
 }
 
+function makePresetsDir() {
+  const dir = mkdtempSync(join(tmpdir(), "ai-game-workbench-presets-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
 describe("module 01 reference image routes", () => {
   it("serves a globally overridden cel anime style reference image", async () => {
     const storageDir = makeStorageDir();
-    const overrideDir = join(storageDir, "config", "reference-images");
+    const presetsDir = makePresetsDir();
+    const overrideDir = join(presetsDir, "module01", "base-template");
     mkdirSync(overrideDir, { recursive: true });
-    writeFileSync(join(overrideDir, "cel-anime-south-facing.png"), "style-override");
+    writeFileSync(join(overrideDir, "style-reference.png"), "style-override");
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      presetsDir,
       storageDir
     });
     await app.ready();
@@ -44,9 +52,11 @@ describe("module 01 reference image routes", () => {
 
   it("uploads and globally overwrites the walk direction reference image", async () => {
     const storageDir = makeStorageDir();
+    const presetsDir = makePresetsDir();
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      presetsDir,
       storageDir
     });
     await app.ready();
@@ -68,8 +78,9 @@ describe("module 01 reference image routes", () => {
       storedName: "walk-4dir.png",
       url: "/direction-references/walk-4dir.png"
     });
-    const savedPath = join(storageDir, "config", "reference-images", "walk-4dir.png");
+    const savedPath = join(presetsDir, "module01", "walk", "direction-reference.png");
     expect(existsSync(savedPath)).toBe(true);
+    expect(existsSync(join(storageDir, "config", "reference-images", "walk-4dir.png"))).toBe(false);
     expect(readFileSync(savedPath).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
 
     await app.close();
@@ -77,9 +88,11 @@ describe("module 01 reference image routes", () => {
 
   it("uploads and globally overwrites the run direction reference image", async () => {
     const storageDir = makeStorageDir();
+    const presetsDir = makePresetsDir();
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      presetsDir,
       storageDir
     });
     await app.ready();
@@ -101,7 +114,8 @@ describe("module 01 reference image routes", () => {
       storedName: "run-4dir.png",
       url: "/direction-references/run-4dir.png"
     });
-    expect(existsSync(join(storageDir, "config", "reference-images", "run-4dir.png"))).toBe(true);
+    expect(existsSync(join(presetsDir, "module01", "run", "direction-reference.png"))).toBe(true);
+    expect(existsSync(join(storageDir, "config", "reference-images", "run-4dir.png"))).toBe(false);
 
     await app.close();
   });

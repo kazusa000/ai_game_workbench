@@ -51,7 +51,7 @@ export type OneClickCharacterJobRunner = (
   context: OneClickJobContext
 ) => Promise<void>;
 
-type OneClickCharacterRouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "ffmpegPath"> & {
+type OneClickCharacterRouteConfig = Pick<AppConfig, "storageDir" | "presetsDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "ffmpegPath"> & {
   oneClickCharacterJobRunner?: OneClickCharacterJobRunner;
 };
 
@@ -200,7 +200,7 @@ async function validateStartInput(
     return { error: true, statusCode: 400, body: { error: "请填写角色基准模板模型和提示词。" } };
   }
 
-  const workflowConfig = await readModule01WorkflowConfig(config.storageDir) ?? {};
+  const workflowConfig = await readModule01WorkflowConfig(config.presetsDir) ?? {};
   const actions = {
     run: Boolean(input.actions?.run),
     attack1: Boolean(input.actions?.attack1),

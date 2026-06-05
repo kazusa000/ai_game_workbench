@@ -21,6 +21,7 @@ const NANO_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
 const stylesPath = join(process.cwd(), "src", "styles.css");
 let videoStatusPayload: unknown;
 let module01WorkflowConfigPayload: unknown;
+let module02WorkflowConfigPayload: unknown;
 let module01WorkflowConfigLoadDelayMs: number;
 let advancedCharacterAssetsPayload: unknown;
 let pixelCharacters: Array<{ id: string; name: string }>;
@@ -41,6 +42,7 @@ beforeEach(() => {
     localVideoUrl: `${characterBase}/base-character/walk-video/source.mp4`
   };
   module01WorkflowConfigPayload = null;
+  module02WorkflowConfigPayload = null;
   module01WorkflowConfigLoadDelayMs = 0;
   advancedCharacterAssetsPayload = undefined;
   pixelCharacters = [{ id: "pixel-hero", name: "pixel-hero" }];
@@ -69,6 +71,13 @@ beforeEach(() => {
         };
       }
       return jsonResponse(adminProviderSettingsPayload);
+    }
+    if (url.endsWith("/api/module02/workflow-config")) {
+      if (init?.method === "PUT") {
+        module02WorkflowConfigPayload = JSON.parse(String(init.body ?? "{}"));
+        return jsonResponse({ config: module02WorkflowConfigPayload });
+      }
+      return jsonResponse({ config: module02WorkflowConfigPayload });
     }
     if (url.endsWith("/api/module02/characters")) {
       if (init?.method === "POST") {
@@ -890,7 +899,7 @@ describe("App", () => {
       target: { value: "base prompt from settings" }
     });
     fireEvent.click(screen.getByRole("button", { name: "保存基准模板/待机设置" }));
-    expect(screen.getByText("基准模板/待机设置已保存。")).toBeInTheDocument();
+    await screen.findByText("基准模板/待机设置已保存到 presets。");
 
     fireEvent.click(screen.getByRole("button", { name: "基准模板/待机" }));
     fireEvent.click(screen.getByRole("button", { name: "生成基准模板/待机" }));
@@ -1422,7 +1431,9 @@ describe("App", () => {
       target: { value: "0.62" }
     });
     fireEvent.click(screen.getByRole("button", { name: "保存攻击 1 设置" }));
-    await screen.findByText(/视频配置已保存到后端/);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) =>
+      String(url).endsWith("/api/module01/workflow-config") && (init as RequestInit | undefined)?.method === "PUT"
+    )).toBe(true));
 
     fireEvent.click(screen.getByRole("button", { name: "攻击 1" }));
     fireEvent.click(screen.getByRole("button", { name: /准备攻击起始帧/i }));
@@ -1857,7 +1868,9 @@ describe("App", () => {
     expect(screen.getByLabelText("设置步行视频分辨率")).toHaveValue("720p");
     expect(within(screen.getByLabelText("设置步行视频分辨率")).getByRole("option", { name: "1080p" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存步行设置" }));
-    await screen.findByText(/视频配置已保存到后端/);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) =>
+      String(url).endsWith("/api/module01/workflow-config") && (init as RequestInit | undefined)?.method === "PUT"
+    )).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "步行" }));
 
     fireEvent.click(screen.getByRole("button", { name: /提交视频任务/i }));

@@ -11,7 +11,7 @@ import { registerGodotExportRoutes } from "./routes/godotExport";
 import { registerModule02Routes } from "./routes/module02";
 import { registerOneClickCharacterRoutes, type OneClickCharacterJobRunner } from "./routes/oneClickCharacterJobs";
 import { registerProviderSettingsRoutes } from "./routes/providerSettings";
-import { resolveDefaultFfmpegPath, resolveDefaultModule01CharacterExportDir, type AppConfig } from "./config";
+import { resolveDefaultFfmpegPath, resolveDefaultModule01CharacterExportDir, resolveDefaultPresetsDir, type AppConfig } from "./config";
 
 export type CreateAppOptions = Pick<AppConfig, "storageDir"> & Partial<AppConfig> & {
   oneClickCharacterJobRunner?: OneClickCharacterJobRunner;
@@ -27,6 +27,7 @@ export function createApp(options: CreateAppOptions) {
   const projectStore = createProjectStore({ storageDir: options.storageDir });
   const ffmpegPath = options.ffmpegPath ?? resolveDefaultFfmpegPath();
   const module01CharacterExportDir = options.module01CharacterExportDir ?? resolveDefaultModule01CharacterExportDir();
+  const presetsDir = options.presetsDir ?? resolveDefaultPresetsDir();
 
   void app.register(cors, {
     origin: true,
@@ -42,7 +43,7 @@ export function createApp(options: CreateAppOptions) {
     adminSettingsToken: options.adminSettingsToken
   });
   registerWorkflowConfigRoutes(app, {
-    storageDir: options.storageDir
+    presetsDir
   });
   registerCharacterRoutes(app, {
     storageDir: options.storageDir
@@ -50,6 +51,7 @@ export function createApp(options: CreateAppOptions) {
   registerProjectRoutes(app, projectStore);
   registerAssetRoutes(app, {
     port: options.port ?? 8787,
+    presetsDir,
     storageDir: options.storageDir,
     module01CharacterExportDir,
     publicAssetBaseUrl: options.publicAssetBaseUrl
@@ -57,6 +59,7 @@ export function createApp(options: CreateAppOptions) {
   registerGenerationRoutes(app, {
     ffmpegPath,
     port: options.port ?? 8787,
+    presetsDir,
     storageDir: options.storageDir,
     module01CharacterExportDir,
     openRouterApiKey: options.openRouterApiKey,
@@ -67,6 +70,7 @@ export function createApp(options: CreateAppOptions) {
   });
   registerModule02Routes(app, {
     port: options.port ?? 8787,
+    presetsDir,
     storageDir: options.storageDir,
     module01CharacterExportDir,
     openRouterApiKey: options.openRouterApiKey,
@@ -86,6 +90,7 @@ export function createApp(options: CreateAppOptions) {
   registerOneClickCharacterRoutes(app, {
     ffmpegPath,
     storageDir: options.storageDir,
+    presetsDir,
     openRouterApiKey: options.openRouterApiKey,
     openAiCompatibleBaseUrl: options.openAiCompatibleBaseUrl,
     openAiCompatibleApiKey: options.openAiCompatibleApiKey,

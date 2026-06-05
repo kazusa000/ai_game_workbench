@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +17,12 @@ afterEach(() => {
 
 function makeStorageDir() {
   const dir = mkdtempSync(join(tmpdir(), "ai-game-workbench-module02-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
+function makePresetsDir() {
+  const dir = mkdtempSync(join(tmpdir(), "ai-game-workbench-presets-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -104,7 +110,10 @@ describe("module 02 pixel character routes", () => {
   });
 
   it("serves module 02 built-in reference assets and configured actions", async () => {
-    const app = createApp({ storageDir: makeStorageDir(), port: 8787, ffmpegPath: "ffmpeg" });
+    const presetsDir = makePresetsDir();
+    mkdirSync(join(presetsDir, "module02", "walk"), { recursive: true });
+    writeFileSync(join(presetsDir, "module02", "walk", "action-reference.png"), onePixelPng());
+    const app = createApp({ storageDir: makeStorageDir(), presetsDir, port: 8787, ffmpegPath: "ffmpeg" });
     await app.ready();
 
     const actionsResponse = await app.inject({
@@ -120,7 +129,7 @@ describe("module 02 pixel character routes", () => {
     expect(actionsResponse.json().actions.map((action: { id: string }) => action.id)).toEqual(["idle", "walk"]);
     expect(referenceResponse.statusCode).toBe(200);
     expect(referenceResponse.headers["content-type"]).toContain("image/png");
-    expect(referenceResponse.rawPayload.length).toBeGreaterThan(1000);
+    expect(referenceResponse.rawPayload.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
 
     await app.close();
   });
@@ -459,6 +468,13 @@ function multipartPayload(fileName: string, contentType: string, body: string) {
     "------module02-test--",
     ""
   ].join("\r\n");
+}
+
+function onePixelPng(): Buffer {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64"
+  );
 }
 
 async function createTestSheet(): Promise<Buffer> {

@@ -419,6 +419,7 @@ export interface SaveAdminProviderSettingsInput extends ProviderSettingsDocument
 }
 
 export type Module01WorkflowConfig = Record<string, unknown>;
+export type Module02WorkflowConfig = Record<string, unknown>;
 
 export type Module01ReferenceImageKind = "style" | "walk" | "idle" | "run";
 export type Module02ActionReferenceId = "idle" | "walk";
@@ -710,6 +711,28 @@ export async function saveModule01WorkflowConfig(config: Module01WorkflowConfig)
     throw new Error(await readErrorMessage(response, `模块 01 配置保存失败：${response.status}`));
   }
   const body = await response.json() as { config?: Module01WorkflowConfig };
+  return body.config ?? {};
+}
+
+export async function getModule02WorkflowConfig(): Promise<Module02WorkflowConfig | null> {
+  const response = await fetch(`${API_BASE}/api/module02/workflow-config`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `妯″潡 02 閰嶇疆鍔犺浇澶辫触锛?{response.status}`));
+  }
+  const body = await response.json() as { config?: Module02WorkflowConfig | null };
+  return body.config ?? null;
+}
+
+export async function saveModule02WorkflowConfig(config: Module02WorkflowConfig): Promise<Module02WorkflowConfig> {
+  const response = await fetch(`${API_BASE}/api/module02/workflow-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `妯″潡 02 閰嶇疆淇濆瓨澶辫触锛?{response.status}`));
+  }
+  const body = await response.json() as { config?: Module02WorkflowConfig };
   return body.config ?? {};
 }
 

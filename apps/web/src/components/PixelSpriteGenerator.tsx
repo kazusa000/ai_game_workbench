@@ -19,11 +19,13 @@ import {
   deletePixelCharacter,
   filterProviderModelCatalogForUserSettings,
   getProviderModelCatalog,
+  getModule02WorkflowConfig,
   getPixelCharacterAssets,
   getPixelSpriteActions,
   loadUserApiProviderSettings,
   listPixelCharacters,
   processSpriteSheet,
+  saveModule02WorkflowConfig,
   toAbsoluteApiUrl,
   uploadModule02ActionReferenceImage,
   uploadModule02CharacterAsset,
@@ -238,6 +240,29 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     ? groupedWalkFrames.get(directionToRow(activeDirection)) ?? []
     : groupedIdleFrames.get(directionToRow(activeDirection)) ?? [];
   const activePreviewFrame = activePreviewFrames[previewFrameIndex % Math.max(1, activePreviewFrames.length)];
+
+  useEffect(() => {
+    let cancelled = false;
+    void getModule02WorkflowConfig()
+      .then((config) => {
+        if (cancelled || !config) {
+          return;
+        }
+        const loadedDraft = normalizeDraft(config);
+        setDraft(loadedDraft);
+        setSettingsDraft(loadedDraft);
+        writeDraft(loadedDraft);
+        setSettingsStatus("模块 02 presets 配置已加载。");
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setSettingsStatus(`模块 02 presets 配置加载失败：${getErrorMessage(error)}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -632,17 +657,23 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     setSettingsDraft((current) => ({ ...current, [key]: value }));
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     const normalized = normalizeDraft(settingsDraft);
     setDraft(normalized);
     setSettingsDraft(normalized);
     writeDraft(normalized);
     const group = SETTINGS_GROUPS.find((item) => item.id === activeSettingsGroup);
     const label = group?.label ?? "模块设置";
-    const message = `${label}已保存。`;
-    setSettingsStatus(message);
-    if (activeSettingsGroup === "character-preview") {
-      setPreviewStatus(message);
+    setSettingsStatus(`正在保存 ${label} 到 presets...`);
+    try {
+      await saveModule02WorkflowConfig(normalized as unknown as Record<string, unknown>);
+      const message = `${label}已保存到 presets。`;
+      setSettingsStatus(message);
+      if (activeSettingsGroup === "character-preview") {
+        setPreviewStatus(message);
+      }
+    } catch (error: unknown) {
+      setSettingsStatus(`模块 02 presets 保存失败：${getErrorMessage(error)}`);
     }
   };
 

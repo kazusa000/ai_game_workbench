@@ -18,6 +18,12 @@ function makeStorageDir() {
   return dir;
 }
 
+function makePresetsDir() {
+  const dir = mkdtempSync(join(tmpdir(), "ai-game-workbench-presets-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
 function makeStartPayload(overrides: Record<string, unknown> = {}) {
   return {
     characterName: "hero",
@@ -131,10 +137,11 @@ describe("one-click character jobs route", () => {
     await app.close();
   });
 
-  it("starts with APIMart when an old workflow config saved the OpenRouter Seedance model", async () => {
+  it("starts with APIMart when presets saved the OpenRouter Seedance model", async () => {
     const storageDir = makeStorageDir();
-    mkdirSync(join(storageDir, "config"), { recursive: true });
-    writeFileSync(join(storageDir, "config", "module01-workflow.json"), JSON.stringify({
+    const presetsDir = makePresetsDir();
+    mkdirSync(join(presetsDir, "module01"), { recursive: true });
+    writeFileSync(join(presetsDir, "module01", "workflow.json"), JSON.stringify({
       videoModel: "bytedance/seedance-2.0",
       videoDurationSeconds: 4,
       videoResolution: "720p"
@@ -142,6 +149,7 @@ describe("one-click character jobs route", () => {
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      presetsDir,
       storageDir,
       oneClickCharacterJobRunner: async () => undefined
     });
@@ -176,9 +184,15 @@ describe("one-click character jobs route", () => {
 
   it("refuses attack generation when the saved attack midframe prompt is empty", async () => {
     const storageDir = makeStorageDir();
+    const presetsDir = makePresetsDir();
+    mkdirSync(join(presetsDir, "module01"), { recursive: true });
+    writeFileSync(join(presetsDir, "module01", "workflow.json"), JSON.stringify({
+      advancedAttackMidframeCustomPrompt: ""
+    }));
     const app = createApp({
       ffmpegPath: "ffmpeg",
       port: 8787,
+      presetsDir,
       storageDir,
       oneClickCharacterJobRunner: async () => undefined
     });

@@ -411,7 +411,7 @@ export function registerGenerationRoutes(app: FastifyInstance, config: AppConfig
 
 async function withBuiltInStyleReference(
   input: Parameters<typeof buildImageGenerationPayload>[0],
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "presetsDir">
 ): Promise<Parameters<typeof buildImageGenerationPayload>[0]> {
   if (input.styleReferenceImageDataUrl) {
     return input;
@@ -422,18 +422,18 @@ async function withBuiltInStyleReference(
   };
 }
 
-async function readBuiltInStyleReferenceDataUrl(config: Pick<AppConfig, "storageDir">): Promise<string> {
+async function readBuiltInStyleReferenceDataUrl(config: Pick<AppConfig, "presetsDir">): Promise<string> {
   const buffer = await readBuiltInStyleReferenceBuffer(config);
   return `data:${BUILT_IN_STYLE_REFERENCE_CONTENT_TYPE};base64,${buffer.toString("base64")}`;
 }
 
-async function readBuiltInStyleReferenceBuffer(config: Pick<AppConfig, "storageDir">): Promise<Buffer> {
-  return readModule01ReferenceImageBuffer(config.storageDir, "style");
+async function readBuiltInStyleReferenceBuffer(config: Pick<AppConfig, "presetsDir">): Promise<Buffer> {
+  return readModule01ReferenceImageBuffer(config.presetsDir, "style");
 }
 
 async function buildDirectionTemplatePayloadInput(
   input: DirectionTemplateGenerationInput,
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "presetsDir">
 ): Promise<BuildImageGenerationPayloadInput | { error: string }> {
   if (!isDirectionTemplateKind(input.templateKind)) {
     return { error: "templateKind must be idle, walk, or run" };
@@ -484,7 +484,7 @@ async function runLocalCodexFirstFrameGeneration(
     : [
         input.styleReferenceImageDataUrl
           ? { dataUrl: input.styleReferenceImageDataUrl }
-          : { filePath: resolveModule01ReferenceImagePath(config.storageDir, "style") },
+          : { filePath: resolveModule01ReferenceImagePath(config.presetsDir, "style") },
         input.referenceImageDataUrl ? { dataUrl: input.referenceImageDataUrl } : undefined
       ];
   return withLocalCodexImageSources(
@@ -513,7 +513,7 @@ async function runLocalCodexDirectionTemplateGeneration(
   return withLocalCodexImageSources(
     [
       { dataUrl: input.characterTemplateImageDataUrl },
-      { filePath: resolveModule01ReferenceImagePath(config.storageDir, input.templateKind) }
+      { filePath: resolveModule01ReferenceImagePath(config.presetsDir, input.templateKind) }
     ],
     async (imagePaths) => runLocalCodexImageGeneration({
       model: input.model,
@@ -614,7 +614,7 @@ function getDirectionTemplateCharacterTarget(kind: DirectionTemplateKind): Chara
 
 async function readBuiltInDirectionReferenceDataUrl(
   kind: DirectionTemplateKind,
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "presetsDir">
 ): Promise<string> {
   const buffer = await readBuiltInDirectionReferenceBuffer(kind, config);
   return `data:${BUILT_IN_STYLE_REFERENCE_CONTENT_TYPE};base64,${buffer.toString("base64")}`;
@@ -622,9 +622,9 @@ async function readBuiltInDirectionReferenceDataUrl(
 
 async function readBuiltInDirectionReferenceBuffer(
   kind: DirectionTemplateKind,
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "presetsDir">
 ): Promise<Buffer> {
-  return readModule01ReferenceImageBuffer(config.storageDir, kind);
+  return readModule01ReferenceImageBuffer(config.presetsDir, kind);
 }
 
 async function storeGeneratedFirstFrame(

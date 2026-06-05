@@ -26,6 +26,7 @@ import { resolvePublicServerBaseUrl } from "./assets";
 import { resolveGenerationProviderModel } from "../providerSettings";
 import type { ProviderRequestAuth } from "../providerSettings";
 import { readModule02ActionReferenceBuffer } from "../module02ActionReferences";
+import { readModule02WorkflowConfig } from "./workflowConfig";
 import {
   createPixelCharacterFolder,
   deletePixelCharacterFolder,
@@ -40,7 +41,7 @@ import {
   type SlicedSpriteFrame
 } from "../processing/imageProcessing";
 
-type Module02RouteConfig = Pick<AppConfig, "storageDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir" | "localCodexImageGenerator">;
+type Module02RouteConfig = Pick<AppConfig, "storageDir" | "presetsDir" | "openRouterApiKey" | "openAiCompatibleBaseUrl" | "openAiCompatibleApiKey" | "publicAssetBaseUrl" | "port" | "module01CharacterExportDir" | "localCodexImageGenerator">;
 type PixelAssetKind = "character-reference" | "base-template" | "walk-template";
 type PixelSliceKind = "idle" | "walk";
 
@@ -147,7 +148,7 @@ export function registerModule02Routes(app: FastifyInstance, config: Module02Rou
   });
 
   app.get("/api/module02/generation/sprite-sheet/actions", async () => ({
-    actions: PIXEL_SPRITE_ACTIONS
+    actions: await getPixelSpriteActions(config.presetsDir)
   }));
 
   app.post("/api/module02/generation/sprite-sheet/payload", async (request, reply) => {
@@ -386,10 +387,10 @@ async function listPixelFrameRecords(
 
 async function buildSpriteSheetRoutePayload(
   input: SpriteSheetGenerationRequest,
-  config: Pick<AppConfig, "storageDir">
+  config: Pick<AppConfig, "storageDir" | "presetsDir">
 ) {
   const actionId = input.actionId?.trim() || "idle";
-  const action = findPixelSpriteAction(actionId);
+  const action = await findPixelSpriteActionFromPresets(actionId, config.presetsDir);
   if (!action) {
     return { error: `Unknown pixel sprite action: ${actionId}` };
   }
@@ -406,7 +407,7 @@ async function buildSpriteSheetRoutePayload(
     customPrompt: input.customPrompt ?? "",
     keyColor
   });
-  const actionReferenceImageResult = await readActionReferenceImage(config.storageDir, action.referenceImage);
+  const actionReferenceImageResult = await readActionReferenceImage(config.presetsDir, action.referenceImage);
   if ("error" in actionReferenceImageResult) {
     return { error: actionReferenceImageResult.error };
   }
@@ -480,15 +481,40 @@ async function resolveCharacterReferenceUrlImage(
   };
 }
 
-async function readActionReferenceImage(storageDir: string, referenceImage: string): Promise<{ dataUrl: string } | { error: string }> {
+async function readActionReferenceImage(presetsDir: string, referenceImage: string): Promise<{ dataUrl: string } | { error: string }> {
   try {
-    const buffer = await readModule02ActionReferenceBuffer(storageDir, referenceImage);
+    const buffer = await readModule02ActionReferenceBuffer(presetsDir, referenceImage);
     return {
       dataUrl: `data:${contentTypeFromFileName(referenceImage)};base64,${buffer.toString("base64")}`
     };
   } catch {
     return { error: `动作参考图缺失：${referenceImage}` };
   }
+}
+
+async function getPixelSpriteActions(presetsDir: string): Promise<typeof PIXEL_SPRITE_ACTIONS> {
+  const workflow = await readModule02WorkflowConfig(presetsDir) ?? {};
+  const basePrompt = readString(workflow, "basePrompt");
+  const walkPrompt = readString(workflow, "walkPrompt");
+  return PIXEL_SPRITE_ACTIONS.map((action) => {
+    if (action.id === "idle" && basePrompt) {
+      return { ...action, name: "基准模板/待机", constraintPrompt: basePrompt };
+    }
+    if (action.id === "walk" && walkPrompt) {
+      return { ...action, name: "步行", constraintPrompt: walkPrompt };
+    }
+    return action;
+  }) as typeof PIXEL_SPRITE_ACTIONS;
+}
+
+async function findPixelSpriteActionFromPresets(actionId: string, presetsDir: string) {
+  return (await getPixelSpriteActions(presetsDir)).find((action) => action.id === actionId)
+    ?? findPixelSpriteAction(actionId);
+}
+
+function readString(config: Record<string, unknown>, key: string): string | undefined {
+  const value = config[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 async function runLocalCodexSpriteSheetGeneration(

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import type { FastifyInstance } from "fastify";
@@ -28,7 +27,7 @@ import {
   resolveModule02ActionReferenceOverridePath
 } from "../module02ActionReferences";
 
-type AssetRouteConfig = Pick<AppConfig, "storageDir" | "module01CharacterExportDir" | "publicAssetBaseUrl" | "port">;
+type AssetRouteConfig = Pick<AppConfig, "storageDir" | "presetsDir" | "module01CharacterExportDir" | "publicAssetBaseUrl" | "port">;
 
 export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConfig): void {
   const assetDir = join(config.storageDir, "assets");
@@ -36,7 +35,6 @@ export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConf
   const charactersDir = join(config.storageDir, "characters");
   const pixelCharactersDir = join(config.storageDir, "characters_pixel");
   const characterExportDir = config.module01CharacterExportDir;
-  const module02ActionReferenceDir = fileURLToPath(new URL("../assets/module02-action-references", import.meta.url));
   mkdirSync(assetDir, { recursive: true });
   mkdirSync(jobsDir, { recursive: true });
   mkdirSync(charactersDir, { recursive: true });
@@ -79,15 +77,10 @@ export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConf
     if (!actionId) {
       return reply.callNotFound();
     }
-    const buffer = await readModule02ActionReferenceBuffer(config.storageDir, getModule02ActionReferenceFileName(actionId));
+    const buffer = await readModule02ActionReferenceBuffer(config.presetsDir, getModule02ActionReferenceFileName(actionId));
     return reply.header("Content-Type", "image/png").send(buffer);
   });
 
-  void app.register(fastifyStatic, {
-    root: module02ActionReferenceDir,
-    prefix: "/module02/action-references/",
-    decorateReply: false
-  });
   void app.register(fastifyStatic, {
     root: characterExportDir,
     prefix: "/exports/character-2d/",
@@ -107,7 +100,7 @@ export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConf
       return reply.code(400).send({ error: "only image files are supported" });
     }
 
-    const localPath = resolveModule01ReferenceImageOverridePath(config.storageDir, kind);
+    const localPath = resolveModule01ReferenceImageOverridePath(config.presetsDir, kind);
     const buffer = await sharp(await file.toBuffer()).png().toBuffer();
     await mkdir(dirname(localPath), { recursive: true });
     await writeFile(localPath, buffer);
@@ -133,7 +126,7 @@ export function registerAssetRoutes(app: FastifyInstance, config: AssetRouteConf
       return reply.code(400).send({ error: "only image files are supported" });
     }
 
-    const localPath = resolveModule02ActionReferenceOverridePath(config.storageDir, actionId);
+    const localPath = resolveModule02ActionReferenceOverridePath(config.presetsDir, actionId);
     const buffer = await sharp(await file.toBuffer()).png().toBuffer();
     await mkdir(dirname(localPath), { recursive: true });
     await writeFile(localPath, buffer);

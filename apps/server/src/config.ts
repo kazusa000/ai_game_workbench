@@ -14,6 +14,7 @@ export interface AppConfig {
   publicAssetBaseUrl?: string;
   ffmpegPath: string;
   storageDir: string;
+  presetsDir: string;
   module01CharacterExportDir: string;
   port: number;
   localCodexImageGenerator?: LocalCodexImageGenerator;
@@ -28,6 +29,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     publicAssetBaseUrl: env.PUBLIC_ASSET_BASE_URL,
     ffmpegPath: env.FFMPEG_PATH ?? resolveDefaultFfmpegPath(),
     storageDir: resolveStorageDir(env.STORAGE_DIR),
+    presetsDir: resolvePresetsDir(env.PRESETS_DIR),
     module01CharacterExportDir: resolve(env.MODULE01_CHARACTER_EXPORT_DIR ?? resolveDefaultModule01CharacterExportDir()),
     port: Number(env.PORT ?? 8787)
   };
@@ -45,8 +47,18 @@ export function resolveDefaultStorageDir(): string {
   return resolve(SERVER_ROOT, "storage");
 }
 
+export function resolveDefaultPresetsDir(): string {
+  return resolve(REPO_ROOT, "presets");
+}
+
 function resolveStorageDir(value: string | undefined): string {
   return value?.trim()
     ? resolve(SERVER_ROOT, value.trim())
     : resolveDefaultStorageDir();
+}
+
+function resolvePresetsDir(value: string | undefined): string {
+  return value?.trim()
+    ? resolve(REPO_ROOT, value.trim())
+    : resolveDefaultPresetsDir();
 }

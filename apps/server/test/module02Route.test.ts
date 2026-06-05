@@ -27,7 +27,7 @@ function makePresetsDir() {
   return dir;
 }
 
-const TEST_OPENROUTER_API_KEY = "sk-or-v1-web-key";
+const TEST_OPENROUTER_API_KEY = "test-openrouter-key";
 
 describe("module 02 pixel character routes", () => {
   it("creates, lists, loads, and deletes pixel character folders", async () => {

@@ -19,8 +19,8 @@ function makeStorageDir() {
   return dir;
 }
 
-const TEST_OPENROUTER_API_KEY = "sk-or-v1-web-key";
-const TEST_COMPATIBLE_API_KEY = "sk-compatible-web-key";
+const TEST_OPENROUTER_API_KEY = "test-openrouter-key";
+const TEST_COMPATIBLE_API_KEY = "test-compatible-key";
 
 describe("generation route", () => {
   it("stores a generated base template in the selected character folder", async () => {
@@ -60,7 +60,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/first-frame",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com",
         "x-character-id": "hero"
       },
@@ -120,7 +120,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/advanced-action-midframe",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com",
         "x-character-id": "hero"
       },
@@ -182,7 +182,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/first-frame",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com"
       },
       payload: {
@@ -598,7 +598,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/direction-template",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com",
         "x-character-id": "hero"
       },
@@ -699,7 +699,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/direction-template",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com"
       },
       payload: {
@@ -758,7 +758,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/direction-template",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com",
         "x-character-id": "hero"
       },
@@ -850,7 +850,7 @@ describe("generation route", () => {
       }
       if (url === "https://openrouter.ai/api/v1/generation/image-content") {
         expect(init?.headers).toMatchObject({
-          Authorization: "Bearer sk-or-v1-web-key"
+          Authorization: "Bearer test-openrouter-key"
         });
         return new Response(new Uint8Array([9, 8, 7, 6]), {
           status: 200,
@@ -874,7 +874,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/direction-template",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key",
+        "x-openrouter-api-key": "test-openrouter-key",
         "x-public-asset-base-url": "https://assets.example.com"
       },
       payload: {
@@ -918,7 +918,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-header-ignored"
+        "x-openrouter-api-key": "test-header-ignored"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -933,7 +933,7 @@ describe("generation route", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       headers: expect.objectContaining({
-        Authorization: "Bearer sk-or-v1-web-key"
+        Authorization: "Bearer test-openrouter-key"
       })
     });
 
@@ -955,7 +955,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -994,7 +994,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -1036,7 +1036,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -1079,7 +1079,7 @@ describe("generation route", () => {
       method: "POST",
       url: "/api/generation/video",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       },
       payload: {
         model: "bytedance/seedance-2.0",
@@ -1126,7 +1126,7 @@ describe("generation route", () => {
       url: "/api/generation/video",
       headers: {
         "x-ai-provider-id": "apimart",
-        "x-ai-provider-api-key": "sk-apimart-test"
+        "x-ai-provider-api-key": "test-apimart-key"
       },
       payload: {
         model: "apimart/seedance-1.0-pro-quality",
@@ -1189,7 +1189,7 @@ describe("generation route", () => {
       method: "GET",
       url: "/api/generation/video/video_job_done",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       }
     });
 
@@ -1246,7 +1246,7 @@ describe("generation route", () => {
       method: "GET",
       url: "/api/generation/video/video_job_run?characterId=hero&actionKind=run",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       }
     });
 
@@ -1268,7 +1268,7 @@ describe("generation route", () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "https://openrouter.ai/api/v1/videos/video_job_unsigned/content?index=0") {
         expect(init?.headers).toMatchObject({
-          Authorization: "Bearer sk-or-v1-web-key"
+          Authorization: "Bearer test-openrouter-key"
         });
         return new Response(new Uint8Array([5, 6, 7, 8]), {
           status: 200,
@@ -1301,7 +1301,7 @@ describe("generation route", () => {
       method: "GET",
       url: "/api/generation/video/video_job_unsigned",
       headers: {
-        "x-openrouter-api-key": "sk-or-v1-web-key"
+        "x-openrouter-api-key": "test-openrouter-key"
       }
     });
 

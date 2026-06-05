@@ -11,7 +11,7 @@ describe("APIMart video provider client", () => {
         expect(init).toMatchObject({
           method: "POST",
           headers: expect.objectContaining({
-            Authorization: "Bearer sk-apimart-test",
+            Authorization: "Bearer test-apimart-key",
             "Content-Type": "application/json"
           })
         });
@@ -50,7 +50,7 @@ describe("APIMart video provider client", () => {
       return Response.json({ error: "unexpected URL" }, { status: 500 });
     });
     const client = new ApimartVideoClient({
-      apiKey: "sk-apimart-test",
+      apiKey: "test-apimart-key",
       baseUrl: "https://api.apimart.ai/v1/",
       fetchImpl: fetchMock
     });

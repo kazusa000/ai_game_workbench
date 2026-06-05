@@ -37,7 +37,7 @@ describe("OpenAI images compatible provider client", () => {
       return Response.json({ error: "unexpected URL" }, { status: 500 });
     });
     const client = new OpenAiImagesClient({
-      apiKey: "sk-compatible-test",
+      apiKey: "test-compatible-key",
       baseUrl: "https://api.apimart.ai/v1/",
       fetchImpl: fetchMock,
       pollIntervalMs: 0,
@@ -58,7 +58,7 @@ describe("OpenAI images compatible provider client", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       headers: expect.objectContaining({
-        Authorization: "Bearer sk-compatible-test",
+        Authorization: "Bearer test-compatible-key",
         "Content-Type": "application/json"
       })
     });

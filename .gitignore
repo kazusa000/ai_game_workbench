@@ -1,6 +1,7 @@
 node_modules/
 .worktrees/
 .superpowers/
+docs/superpowers/
 dist/
 build/
 bin/
@@ -13,6 +14,7 @@ coverage/
 
 /storage/
 /apps/server/storage/
+/apps/server/apps/
 Export/
 apps/server/output/
 tmp/

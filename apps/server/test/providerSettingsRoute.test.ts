@@ -124,7 +124,7 @@ describe("provider settings routes", () => {
         },
         secrets: {
           "apimart": {
-            apiKey: "sk-compatible-secret-tail"
+            apiKey: "test-compatible-secret-tail"
           }
         }
       }
@@ -142,7 +142,7 @@ describe("provider settings routes", () => {
     expect(saveResponse.statusCode).toBe(200);
     expect(readResponse.statusCode).toBe(200);
     expect(readResponse.json().secrets.apimart).toEqual({ configured: true, suffix: "tail" });
-    expect(JSON.stringify(readResponse.json())).not.toContain("sk-compatible-secret-tail");
+    expect(JSON.stringify(readResponse.json())).not.toContain("test-compatible-secret-tail");
 
     await app.close();
   });
@@ -175,7 +175,7 @@ describe("provider settings routes", () => {
     mkdirSync(join(storageDir, "config"), { recursive: true });
     writeFileSync(
       join(storageDir, "config", "provider-secrets.json"),
-      `\uFEFF${JSON.stringify({ apiKeys: { apimart: "sk-compatible-bom-tail" } })}`,
+      `\uFEFF${JSON.stringify({ apiKeys: { apimart: "test-compatible-bom-tail" } })}`,
       "utf8"
     );
     const app = createApp({
@@ -196,7 +196,7 @@ describe("provider settings routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().secrets.apimart).toEqual({ configured: true, suffix: "tail" });
-    expect(JSON.stringify(response.json())).not.toContain("sk-compatible-bom-tail");
+    expect(JSON.stringify(response.json())).not.toContain("test-compatible-bom-tail");
 
     await app.close();
   });

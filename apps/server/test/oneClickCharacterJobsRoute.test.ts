@@ -97,7 +97,7 @@ describe("one-click character jobs route", () => {
       url: "/api/module01/one-click-character-jobs",
       headers: {
         "x-ai-provider-id": "apimart",
-        "x-ai-provider-api-key": "sk-apimart-test"
+        "x-ai-provider-api-key": "test-apimart-key"
       },
       payload: makeStartPayload({
         firstFrame: {
@@ -160,7 +160,7 @@ describe("one-click character jobs route", () => {
       url: "/api/module01/one-click-character-jobs",
       headers: {
         "x-ai-provider-id": "apimart",
-        "x-ai-provider-api-key": "sk-apimart-test"
+        "x-ai-provider-api-key": "test-apimart-key"
       },
       payload: makeStartPayload({
         firstFrame: {
@@ -237,7 +237,7 @@ describe("one-click character jobs route", () => {
         defaults: {},
         secrets: {
           openrouter: {
-            apiKey: "sk-or-v1-secret-tail"
+            apiKey: "test-openrouter-secret-tail"
           }
         }
       }
@@ -254,7 +254,7 @@ describe("one-click character jobs route", () => {
     });
     expect(readResponse.statusCode).toBe(200);
     expect(readResponse.json().secrets.openrouter).toEqual({ configured: true, suffix: "tail" });
-    expect(JSON.stringify(readResponse.json())).not.toContain("sk-or-v1-secret-tail");
+    expect(JSON.stringify(readResponse.json())).not.toContain("test-openrouter-secret-tail");
 
     await app.close();
   });

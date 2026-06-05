@@ -14,6 +14,12 @@ import type {
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
 
+export interface RuntimeConfig {
+  publicAssetBaseUrl: string | null;
+  publicTunnelProvider: string | null;
+  publicTunnelUrl: string | null;
+}
+
 export interface UploadedAsset {
   fileName: string;
   storedName: string;
@@ -570,6 +576,14 @@ export async function getProviderModelCatalog(): Promise<ProviderModelCatalog> {
     throw new Error(await readErrorMessage(response, `Provider model catalog load failed: ${response.status}`));
   }
   return response.json() as Promise<ProviderModelCatalog>;
+}
+
+export async function getRuntimeConfig(): Promise<RuntimeConfig> {
+  const response = await fetch(`${API_BASE}/api/runtime-config`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Runtime config load failed: ${response.status}`));
+  }
+  return response.json() as Promise<RuntimeConfig>;
 }
 
 export function loadUserApiProviderSettings(): UserApiProviderSettings {

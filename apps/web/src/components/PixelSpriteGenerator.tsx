@@ -22,6 +22,7 @@ import {
   getModule02WorkflowConfig,
   getPixelCharacterAssets,
   getPixelSpriteActions,
+  getRuntimeConfig,
   loadUserApiProviderSettings,
   listPixelCharacters,
   processSpriteSheet,
@@ -205,6 +206,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
   const [activeSettingsGroup, setActiveSettingsGroup] = useState<PixelSettingsGroup>("base-template");
   const [providerModelCatalog, setProviderModelCatalog] = useState<ProviderModelCatalog | null>(null);
   const [userApiProviderSettings, setUserApiProviderSettings] = useState(() => loadUserApiProviderSettings());
+  const [runtimePublicAssetBaseUrl, setRuntimePublicAssetBaseUrl] = useState("");
   const [baseStatus, setBaseStatus] = useState("选择或创建像素角色后，生成或上传基准模板/待机。");
   const [walkStatus, setWalkStatus] = useState("先生成基准模板/待机，再生成四方向步行图。");
   const [sliceStatus, setSliceStatus] = useState("切帧会写入当前像素角色的 slices/idle 与 slices/walk。");
@@ -221,6 +223,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
   const [uploadingActionReferenceId, setUploadingActionReferenceId] = useState<Module02ActionReferenceId | null>(null);
   const pressedDirectionsRef = useRef<DirectionKey[]>([]);
   const previewMoveSpeedRef = useRef(draft.previewMoveSpeed);
+  const runtimePublicAssetBaseUrlRef = useRef("");
 
   const idleAction = useMemo(() => actions.find((action) => action.id === "idle") ?? FALLBACK_ACTIONS.idle, [actions]);
   const walkAction = useMemo(() => actions.find((action) => action.id === "walk") ?? FALLBACK_ACTIONS.walk, [actions]);
@@ -257,6 +260,24 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
       .catch((error: unknown) => {
         if (!cancelled) {
           setSettingsStatus(`模块 02 presets 配置加载失败：${getErrorMessage(error)}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getRuntimeConfig()
+      .then((config) => {
+        if (!cancelled) {
+          setRuntimePublicAssetBaseUrl(config.publicAssetBaseUrl?.trim() ?? "");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRuntimePublicAssetBaseUrl("");
         }
       });
     return () => {
@@ -306,6 +327,10 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
       return next;
     });
   }, [filteredProviderModelCatalog]);
+
+  useEffect(() => {
+    runtimePublicAssetBaseUrlRef.current = runtimePublicAssetBaseUrl;
+  }, [runtimePublicAssetBaseUrl]);
 
   useEffect(() => {
     previewMoveSpeedRef.current = draft.previewMoveSpeed;
@@ -452,6 +477,26 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
   const characterReferencePreview = toPreview(assets.baseTemplate.characterReference);
   const walkTemplatePreview = toPreview(assets.walkTemplate.output);
 
+  const ensurePublicAssetBaseUrl = async (): Promise<string> => {
+    const manual = draft.publicAssetBaseUrl.trim();
+    if (manual) {
+      return manual;
+    }
+    const current = runtimePublicAssetBaseUrlRef.current.trim();
+    if (current) {
+      return current;
+    }
+    try {
+      const config = await getRuntimeConfig();
+      const next = config.publicAssetBaseUrl?.trim() ?? "";
+      runtimePublicAssetBaseUrlRef.current = next;
+      setRuntimePublicAssetBaseUrl(next);
+      return next;
+    } catch {
+      return "";
+    }
+  };
+
   const handleCreateCharacter = async () => {
     const name = newCharacterName.trim();
     if (!name) {
@@ -500,8 +545,9 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     const statusSetter = kind === "walk-template" ? setWalkStatus : setBaseStatus;
     statusSetter("正在上传像素角色资源...");
     try {
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const uploaded = await uploadModule02CharacterAsset(characterId, kind, file, {
-        publicAssetBaseUrl: draft.publicAssetBaseUrl
+        publicAssetBaseUrl: requestPublicAssetBaseUrl
       });
       const assetFile = {
         fileName: uploaded.fileName,
@@ -540,6 +586,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     setIsGeneratingBase(true);
     setBaseStatus("正在生成基准模板/待机...");
     try {
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const result = await createSpriteSheetGeneration({
         actionId: "idle",
         model: draft.imageModel,
@@ -549,7 +596,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
         pixelCharacterId: characterId,
         characterReferenceUrl: assets.baseTemplate.characterReference?.url
       }, {
-        publicAssetBaseUrl: draft.publicAssetBaseUrl
+        publicAssetBaseUrl: requestPublicAssetBaseUrl
       });
       setAssets((current) => ({
         ...current,
@@ -582,6 +629,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
     setIsGeneratingWalk(true);
     setWalkStatus("正在生成四方向步行图...");
     try {
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const result = await createSpriteSheetGeneration({
         actionId: "walk",
         model: draft.imageModel,
@@ -591,7 +639,7 @@ export function PixelSpriteGenerator({ onBack }: PixelSpriteGeneratorProps) {
         pixelCharacterId: characterId,
         characterReferenceUrl: referenceUrl
       }, {
-        publicAssetBaseUrl: draft.publicAssetBaseUrl
+        publicAssetBaseUrl: requestPublicAssetBaseUrl
       });
       setAssets((current) => ({
         ...current,

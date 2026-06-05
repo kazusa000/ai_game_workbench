@@ -26,6 +26,7 @@ import {
   readModule02ActionReferenceBuffer,
   resolveModule02ActionReferenceOverridePath
 } from "../module02ActionReferences";
+import { resolveRuntimePublicAssetBaseUrl } from "../publicTunnel";
 
 type AssetRouteConfig = Pick<AppConfig, "storageDir" | "presetsDir" | "module01CharacterExportDir" | "publicAssetBaseUrl" | "port">;
 
@@ -260,8 +261,9 @@ export function resolvePublicAssetBaseUrl(
     return { publicBase: normalized };
   }
 
-  if (config.publicAssetBaseUrl) {
-    return { publicBase: normalizePublicAssetBaseUrl(config.publicAssetBaseUrl) ?? config.publicAssetBaseUrl.replace(/\/$/, "") };
+  const runtimeBase = resolveRuntimePublicAssetBaseUrl(config);
+  if (runtimeBase) {
+    return { publicBase: normalizePublicAssetBaseUrl(runtimeBase) ?? runtimeBase.replace(/\/$/, "") };
   }
   return { publicBase: `http://127.0.0.1:${config.port}/assets` };
 }
@@ -271,7 +273,7 @@ export function resolvePublicServerBaseUrl(
   config: AssetRouteConfig
 ): { publicBase: string; error?: undefined } | { publicBase?: undefined; error: string } {
   const requestValue = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-  const requestBase = requestValue?.trim() || config.publicAssetBaseUrl?.trim();
+  const requestBase = requestValue?.trim() || resolveRuntimePublicAssetBaseUrl(config)?.trim();
   if (!requestBase) {
     return { publicBase: `http://127.0.0.1:${config.port}` };
   }

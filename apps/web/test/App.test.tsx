@@ -26,6 +26,7 @@ let module01WorkflowConfigLoadDelayMs: number;
 let advancedCharacterAssetsPayload: unknown;
 let pixelCharacters: Array<{ id: string; name: string }>;
 let adminProviderSettingsPayload: ReturnType<typeof makeAdminProviderSettingsResponse>;
+let runtimeConfigPayload: unknown;
 
 beforeEach(() => {
   const NativeURL = globalThis.URL;
@@ -47,7 +48,15 @@ beforeEach(() => {
   advancedCharacterAssetsPayload = undefined;
   pixelCharacters = [{ id: "pixel-hero", name: "pixel-hero" }];
   adminProviderSettingsPayload = makeAdminProviderSettingsResponse();
+  runtimeConfigPayload = {
+    publicAssetBaseUrl: "https://auto-tunnel.trycloudflare.com/assets",
+    publicTunnelProvider: "cloudflare-quick-tunnel",
+    publicTunnelUrl: "https://auto-tunnel.trycloudflare.com"
+  };
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/api/runtime-config")) {
+      return jsonResponse(runtimeConfigPayload);
+    }
     if (url.endsWith("/api/provider-models")) {
       return jsonResponse(makeProviderModelCatalog());
     }
@@ -1902,7 +1911,7 @@ describe("App", () => {
     const uploadCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/assets/first-frame"));
     expect(uploadCall?.[1]).toMatchObject({
       headers: expect.objectContaining({
-        "x-public-asset-base-url": "https://darn-skittle-unwoven.ngrok-free.dev"
+        "x-public-asset-base-url": "https://auto-tunnel.trycloudflare.com/assets"
       })
     });
   });

@@ -1,7 +1,8 @@
 param(
-  [string]$NgrokUrl = $(if ($env:AI_GAME_WORKBENCH_PUBLIC_URL) { $env:AI_GAME_WORKBENCH_PUBLIC_URL } else { "https://darn-skittle-unwoven.ngrok-free.dev" }),
+  [string]$CloudflaredPath = $(if ($env:CLOUDFLARED_PATH) { $env:CLOUDFLARED_PATH } else { "" }),
   [int]$ServerPort = $(if ($env:PORT) { [int]$env:PORT } else { 8787 }),
   [int]$WebPort = 5173,
+  [switch]$NoTunnel,
   [switch]$NoNgrok,
   [switch]$OpenBrowser,
   [switch]$Check
@@ -13,18 +14,45 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $serverStorageDir = Join-Path $repoRoot "apps\server\storage"
 $logDir = Join-Path $serverStorageDir "logs\workbench"
+$publicTunnelConfigPath = Join-Path $serverStorageDir "config\public-tunnel.json"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
-function Resolve-NgrokExe {
-  $command = Get-Command ngrok -ErrorAction SilentlyContinue
+function Resolve-CloudflaredExe([string]$RequestedPath) {
+  if ($RequestedPath.Trim()) {
+    if (Test-Path $RequestedPath) {
+      return (Resolve-Path $RequestedPath).Path
+    }
+    throw "cloudflared.exe was not found at $RequestedPath"
+  }
+  $command = Get-Command cloudflared -ErrorAction SilentlyContinue
   if ($command) {
     return $command.Source
   }
-  $localExe = Join-Path $env:LOCALAPPDATA "Programs\ngrok\ngrok.exe"
-  if (Test-Path $localExe) {
-    return $localExe
+  $repoToolExe = Join-Path $repoRoot "tools\cloudflared\cloudflared.exe"
+  if (Test-Path $repoToolExe) {
+    return $repoToolExe
   }
-  throw "ngrok.exe was not found. Install ngrok or put ngrok.exe at $localExe"
+  $repoFlatExe = Join-Path $repoRoot "tools\cloudflared.exe"
+  if (Test-Path $repoFlatExe) {
+    return $repoFlatExe
+  }
+  $runtimeExe = Join-Path $serverStorageDir "runtime\cloudflared\cloudflared.exe"
+  if (Test-Path $runtimeExe) {
+    return $runtimeExe
+  }
+  $runtimeDir = Split-Path -Parent $runtimeExe
+  New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+  Write-Host "cloudflared.exe was not found. Downloading Cloudflare Quick Tunnel runtime..."
+  try {
+    Invoke-WebRequest `
+      -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+      -OutFile $runtimeExe `
+      -UseBasicParsing
+    return $runtimeExe
+  } catch {
+    Remove-Item -Force -ErrorAction SilentlyContinue $runtimeExe
+    throw "cloudflared.exe download failed. Install cloudflared, set CLOUDFLARED_PATH, or put cloudflared.exe at $repoToolExe. $($_.Exception.Message)"
+  }
 }
 
 function Test-WorkbenchApi([int]$Port, [string]$ExpectedStorageDir) {
@@ -88,23 +116,51 @@ function Wait-Until([scriptblock]$Probe, [string]$Label, [int]$TimeoutSeconds = 
   throw "$Label startup timed out. Check logs at $logDir"
 }
 
-function Get-NgrokTunnelUrl {
-  try {
-    $tunnels = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -Method Get -TimeoutSec 2
-    $httpsTunnel = @($tunnels.tunnels | Where-Object { $_.proto -eq "https" } | Select-Object -First 1)
-    if ($httpsTunnel) {
-      return [string]$httpsTunnel.public_url
+function Get-CloudflaredTunnelUrl {
+  foreach ($name in @("cloudflared.err.log", "cloudflared.out.log")) {
+    $path = Join-Path $logDir $name
+    if (-not (Test-Path $path)) {
+      continue
     }
-  } catch {
-    return $null
+    $content = Get-Content -LiteralPath $path -Raw -ErrorAction SilentlyContinue
+    if ($content -match "https://[a-zA-Z0-9-]+\.trycloudflare\.com") {
+      return $Matches[0]
+    }
   }
   return $null
 }
 
-$ngrokExe = if ($NoNgrok) { $null } else { Resolve-NgrokExe }
+function Wait-CloudflaredTunnelUrl([int]$TimeoutSeconds = 60) {
+  for ($i = 0; $i -lt $TimeoutSeconds; $i++) {
+    $url = Get-CloudflaredTunnelUrl
+    if ($url) {
+      return $url
+    }
+    Start-Sleep -Seconds 1
+  }
+  throw "cloudflared startup timed out before it printed a trycloudflare.com URL. Check logs at $logDir"
+}
+
+function Clear-PublicTunnelConfig {
+  Remove-Item -Force -ErrorAction SilentlyContinue $publicTunnelConfigPath
+}
+
+function Write-PublicTunnelConfig([string]$TunnelUrl) {
+  $configDir = Split-Path -Parent $publicTunnelConfigPath
+  New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+  $publicAssetBaseUrl = "$($TunnelUrl.TrimEnd("/"))/assets"
+  [pscustomobject]@{
+    provider = "cloudflare-quick-tunnel"
+    url = $TunnelUrl.TrimEnd("/")
+    publicAssetBaseUrl = $publicAssetBaseUrl
+    updatedAt = (Get-Date).ToUniversalTime().ToString("o")
+  } | ConvertTo-Json -Compress | Set-Content -LiteralPath $publicTunnelConfigPath -Encoding UTF8
+  return $publicAssetBaseUrl
+}
+
+$disableTunnel = $NoTunnel -or $NoNgrok
+$cloudflaredExe = if ($disableTunnel) { $null } else { Resolve-CloudflaredExe $CloudflaredPath }
 $npmCmd = "npm.cmd"
-$normalizedNgrokUrl = $NgrokUrl.TrimEnd("/")
-$publicAssetBaseUrl = "$normalizedNgrokUrl/assets"
 $env:STORAGE_DIR = $serverStorageDir
 
 if ($Check) {
@@ -113,36 +169,32 @@ if ($Check) {
     storage = $serverStorageDir
     server = "http://127.0.0.1:$ServerPort"
     web = "http://127.0.0.1:$WebPort"
-    ngrok = if ($NoNgrok) { $null } else { $normalizedNgrokUrl }
-    ngrokExe = $ngrokExe
-    publicAssetBaseUrl = if ($NoNgrok) { $null } else { $publicAssetBaseUrl }
+    tunnelProvider = if ($disableTunnel) { $null } else { "cloudflare-quick-tunnel" }
+    cloudflaredExe = $cloudflaredExe
+    publicTunnelConfig = $publicTunnelConfigPath
     logs = $logDir
   } | ConvertTo-Json -Compress
   exit 0
 }
 
+Clear-PublicTunnelConfig
+
 if (-not (Test-WorkbenchApi $ServerPort $serverStorageDir)) {
   if (Test-TcpPort $ServerPort) {
     throw "Port $ServerPort is already in use, but it is not the AI Game Workbench API with storage $serverStorageDir. Stop the process using that port or start the workbench with a different -ServerPort."
   }
-  $env:PUBLIC_ASSET_BASE_URL = $publicAssetBaseUrl
+  Remove-Item Env:\PUBLIC_ASSET_BASE_URL -ErrorAction SilentlyContinue
   Start-WorkbenchProcess "server" $npmCmd @("run", "dev:server") | Out-Null
   Wait-Until { Test-WorkbenchApi $ServerPort $serverStorageDir } "server"
 } else {
   Write-Host "Server is already running: http://127.0.0.1:$ServerPort"
 }
 
-if (-not $NoNgrok) {
-  $currentTunnelUrl = Get-NgrokTunnelUrl
-  if ($currentTunnelUrl -eq $normalizedNgrokUrl) {
-    Write-Host "ngrok is already running: $currentTunnelUrl"
-  } else {
-    if ($currentTunnelUrl) {
-      Write-Host "Detected another ngrok tunnel: $currentTunnelUrl. Starting the configured tunnel."
-    }
-    Start-WorkbenchProcess "ngrok" $ngrokExe @("http", "--url", $normalizedNgrokUrl, "http://127.0.0.1:$ServerPort", "--log", "stdout") | Out-Null
-    Wait-Until { (Get-NgrokTunnelUrl) -eq $normalizedNgrokUrl } "ngrok"
-  }
+if (-not $disableTunnel) {
+  Start-WorkbenchProcess "cloudflared" $cloudflaredExe @("tunnel", "--url", "http://127.0.0.1:$ServerPort") | Out-Null
+  $tunnelUrl = Wait-CloudflaredTunnelUrl
+  $publicAssetBaseUrl = Write-PublicTunnelConfig $tunnelUrl
+  Write-Host "cloudflared tunnel is ready: $tunnelUrl"
 }
 
 if (-not (Test-TcpPort $WebPort)) {
@@ -154,8 +206,8 @@ if (-not (Test-TcpPort $WebPort)) {
 
 Write-Host ""
 Write-Host "Workbench: http://127.0.0.1:$WebPort"
-if (-not $NoNgrok) {
-  Write-Host "Public asset base: $normalizedNgrokUrl"
+if (-not $disableTunnel) {
+  Write-Host "Public tunnel: $tunnelUrl"
   Write-Host "Uploaded asset prefix: $publicAssetBaseUrl"
 }
 Write-Host "Logs: $logDir"

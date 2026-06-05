@@ -32,6 +32,7 @@ import {
   getOneClickCharacterJob,
   getModule01WorkflowConfig,
   getProviderModelCatalog,
+  getRuntimeConfig,
   getVideoGenerationStatus,
   filterProviderModelCatalogForUserSettings,
   loadUserApiProviderSettings,
@@ -187,7 +188,6 @@ const LEGACY_DRAFT_STORAGE_KEYS = [
   "ai-game-workbench.sprite-animator.workflow.v3",
   "ai-game-workbench.sprite-animator.workflow.v2"
 ];
-const FIXED_PUBLIC_ASSET_BASE_URL = "https://darn-skittle-unwoven.ngrok-free.dev";
 const BUILT_IN_STYLE_REFERENCE_URL = "/style-references/cel-anime-south-facing.png";
 const BUILT_IN_WALK_REFERENCE_URL = "/direction-references/walk-4dir.png";
 const BUILT_IN_IDLE_REFERENCE_URL = "/direction-references/idle-4dir.png";
@@ -406,6 +406,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const openRouterApiKey = "";
   const [providerModelCatalog, setProviderModelCatalog] = useState<ProviderModelCatalog | null>(null);
   const [userApiProviderSettings, setUserApiProviderSettings] = useState(() => loadUserApiProviderSettings());
+  const [runtimePublicAssetBaseUrl, setRuntimePublicAssetBaseUrl] = useState("");
   const [imageModel, setImageModel] = useState(savedDraft.imageModel);
   const [videoModel, setVideoModel] = useState(savedDraft.videoModel);
   const [keyColor, setKeyColor] = useState(savedDraft.keyColor);
@@ -506,6 +507,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const oneClickPollTimeoutRef = useRef<number | undefined>(undefined);
   const assetHydrationVersionRef = useRef(0);
   const [referenceImageVersion, setReferenceImageVersion] = useState("");
+  const runtimePublicAssetBaseUrlRef = useRef("");
 
   const filteredProviderModelCatalog = useMemo(
     () => providerModelCatalog ? filterProviderModelCatalogForUserSettings(providerModelCatalog, userApiProviderSettings) : null,
@@ -555,11 +557,16 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
   const activeFrame = visibleFrames[activeFrameIndex % Math.max(visibleFrames.length, 1)];
   const activePreviewFrameCount = getFinalLoopFrameCount(fourDirectionResult) || visibleFrames.length;
   const effectiveDirectionBaseTemplatePreview = directionBaseTemplatePreview ?? firstFrameOutputPreview;
+  const publicAssetBaseUrl = runtimePublicAssetBaseUrl;
   const currentFinalImagePrompt = buildFirstFramePrompt({
     imageSystemPrompt,
     imageCustomPrompt
   });
   const oneClickProgress = oneClickJob?.progressPercent ?? 0;
+
+  useEffect(() => {
+    runtimePublicAssetBaseUrlRef.current = runtimePublicAssetBaseUrl;
+  }, [runtimePublicAssetBaseUrl]);
 
   useEffect(() => {
     setImageGenerationSize((currentSize) => normalizeImageGenerationSize(imageModels, imageModel, currentSize));
@@ -629,6 +636,24 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       videoCustomPrompt: advancedJumpCustomPrompt
     }));
   }, [advancedJumpCustomPrompt, advancedJumpSystemPrompt]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    void getRuntimeConfig()
+      .then((config) => {
+        if (!isCancelled) {
+          setRuntimePublicAssetBaseUrl(config.publicAssetBaseUrl?.trim() ?? "");
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setRuntimePublicAssetBaseUrl("");
+        }
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -820,6 +845,22 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     return undefined;
   };
 
+  const ensurePublicAssetBaseUrl = async (): Promise<string> => {
+    const current = runtimePublicAssetBaseUrlRef.current.trim();
+    if (current) {
+      return current;
+    }
+    try {
+      const config = await getRuntimeConfig();
+      const next = config.publicAssetBaseUrl?.trim() ?? "";
+      runtimePublicAssetBaseUrlRef.current = next;
+      setRuntimePublicAssetBaseUrl(next);
+      return next;
+    } catch {
+      return "";
+    }
+  };
+
   const clearLoadedCharacterAssets = () => {
     assetHydrationVersionRef.current += 1;
     setCharacterReferenceFile(null);
@@ -857,21 +898,21 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         return;
       }
       const version = Date.now().toString(36);
-      const characterReference = toMediaPreview(assets.baseTemplate.characterReference, version);
-      const baseTemplateOutput = toMediaPreview(assets.baseTemplate.output, version);
-      const directionBaseTemplate = toMediaPreview(assets.baseCharacter.directionBaseTemplate, version);
-      const idleDirection = toMediaPreview(assets.baseCharacter.idleDirectionTemplate, version);
-      const walkDirection = toMediaPreview(assets.baseCharacter.walkDirectionTemplate, version);
-      const walkVideoInput = toMediaPreview(assets.baseCharacter.walkVideoInput, version);
-      const walkVideoSource = toMediaPreview(assets.baseCharacter.walkVideoSource, version);
+      const characterReference = toMediaPreview(assets.baseTemplate.characterReference, version, publicAssetBaseUrl);
+      const baseTemplateOutput = toMediaPreview(assets.baseTemplate.output, version, publicAssetBaseUrl);
+      const directionBaseTemplate = toMediaPreview(assets.baseCharacter.directionBaseTemplate, version, publicAssetBaseUrl);
+      const idleDirection = toMediaPreview(assets.baseCharacter.idleDirectionTemplate, version, publicAssetBaseUrl);
+      const walkDirection = toMediaPreview(assets.baseCharacter.walkDirectionTemplate, version, publicAssetBaseUrl);
+      const walkVideoInput = toMediaPreview(assets.baseCharacter.walkVideoInput, version, publicAssetBaseUrl);
+      const walkVideoSource = toMediaPreview(assets.baseCharacter.walkVideoSource, version, publicAssetBaseUrl);
       const loadedAdvancedActions = {
-        run: advancedAssetToState(assets.advancedCharacter?.run, "等待步行图片，可先生成跑步首帧。"),
-        "attack-1": advancedAssetToState(assets.advancedCharacter?.attack1, "等待待机处理结果，可准备攻击起始帧。"),
-        jump: advancedAssetToState(assets.advancedCharacter?.jump, "等待待机处理结果，可准备跳跃起始帧。")
+        run: advancedAssetToState(assets.advancedCharacter?.run, "等待步行图片，可先生成跑步首帧。", publicAssetBaseUrl),
+        "attack-1": advancedAssetToState(assets.advancedCharacter?.attack1, "等待待机处理结果，可准备攻击起始帧。", publicAssetBaseUrl),
+        jump: advancedAssetToState(assets.advancedCharacter?.jump, "等待待机处理结果，可准备跳跃起始帧。", publicAssetBaseUrl)
       };
       if (options.preserveStatuses) {
         setCharacterReferencePreview((current) => current ?? characterReference);
-        setUploadedCharacterReferencePublicUrl((current) => current || (assets.baseTemplate.characterReference ? toPublicAssetUrl(assets.baseTemplate.characterReference.url) : ""));
+        setUploadedCharacterReferencePublicUrl((current) => current || (assets.baseTemplate.characterReference ? toPublicAssetUrl(assets.baseTemplate.characterReference.url, publicAssetBaseUrl) : ""));
         setFirstFrameOutputPreview((current) => current ?? baseTemplateOutput);
         setDirectionBaseTemplatePreview((current) => current ?? directionBaseTemplate);
         setIdleDirectionOutputPreview((current) => current ?? idleDirection);
@@ -890,7 +931,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         setCharacterReferenceFile(null);
         setDirectionBaseTemplateFile(null);
         setCharacterReferencePreview(characterReference);
-        setUploadedCharacterReferencePublicUrl(assets.baseTemplate.characterReference ? toPublicAssetUrl(assets.baseTemplate.characterReference.url) : "");
+        setUploadedCharacterReferencePublicUrl(assets.baseTemplate.characterReference ? toPublicAssetUrl(assets.baseTemplate.characterReference.url, publicAssetBaseUrl) : "");
         setFirstFrameOutputPreview(baseTemplateOutput);
         setDirectionBaseTemplatePreview(directionBaseTemplate);
         setIdleDirectionOutputPreview(idleDirection);
@@ -1018,11 +1059,12 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       };
     });
     setFirstFrameStatus(`已载入角色参考图：${file.name}，正在保存资源。`);
-    void uploadFirstFrameAsset(file, {
-      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
-      characterId,
-      characterAssetKind: "base-template-reference"
-    })
+    void ensurePublicAssetBaseUrl()
+      .then((requestPublicAssetBaseUrl) => uploadFirstFrameAsset(file, {
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
+        characterId,
+        characterAssetKind: "base-template-reference"
+      }))
       .then((asset) => {
         setUploadedCharacterReferencePublicUrl(asset.publicUrl);
         setFirstFrameStatus(`角色参考图已保存：${asset.fileName}`);
@@ -1075,10 +1117,11 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     try {
       await saveDraft();
       const referenceImageDataUrl = await readFileAsDataUrl(oneClickReferenceFile);
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const job = await createOneClickCharacterJob({
         characterName,
         overwrite,
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
         referenceImageDataUrl,
         firstFrame: {
           model: imageModel,
@@ -1093,7 +1136,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
           jump: oneClickIncludeJump
         }
       }, {
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL
+        publicAssetBaseUrl: requestPublicAssetBaseUrl
       });
       setOneClickJob(job);
       setActiveCharacterId(job.characterId);
@@ -1154,11 +1197,12 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       url: previewUrl
     });
     setVideoStatus(`已载入步行图片：${file.name}，正在保存资源。`);
-    void uploadFirstFrameAsset(file, {
-      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
-      characterId,
-      characterAssetKind: "walk-video-input"
-    })
+    void ensurePublicAssetBaseUrl()
+      .then((requestPublicAssetBaseUrl) => uploadFirstFrameAsset(file, {
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
+        characterId,
+        characterAssetKind: "walk-video-input"
+      }))
       .then((asset) => {
         setVideoInputPreview((current) => {
           if (!current || current.url !== previewUrl) {
@@ -1193,6 +1237,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     setFirstFrameStatus("正在生成角色基准模板...");
     try {
       const referenceImageDataUrl = await readOptionalPreviewImageAsDataUrl(characterReferenceFile, characterReferencePreview);
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const prompt = buildFirstFramePrompt({
         imageSystemPrompt,
         imageCustomPrompt
@@ -1205,7 +1250,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         referenceImageDataUrl
       }, {
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
         characterId
       });
       const imageUrl = extractImageUrl(response);
@@ -1244,6 +1289,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     setDirectionTemplateStatus(`正在生成${outputLabel} 2x2...`);
     try {
       const characterTemplateImageDataUrl = await resolveDirectionTemplateSourceDataUrl(templateKind);
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const response = await createDirectionTemplateGeneration({
         templateKind,
         model: directionImageModel,
@@ -1252,7 +1298,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         characterTemplateImageDataUrl
       }, {
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
         characterId
       });
       const imageUrl = extractImageUrl(response);
@@ -1502,12 +1548,13 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       ...(actionKind === "attack-1" ? { middleFramePreview: null } : {}),
       status: `已载入${label} 输入图：${file.name}，正在保存资源。`
     });
-    void uploadFirstFrameAsset(file, {
-      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
-      characterId,
-      actionKind,
-      characterAssetKind: "advanced-video-input"
-    })
+    void ensurePublicAssetBaseUrl()
+      .then((requestPublicAssetBaseUrl) => uploadFirstFrameAsset(file, {
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
+        characterId,
+        actionKind,
+        characterAssetKind: "advanced-video-input"
+      }))
       .then((asset) => {
         const savedPreview = {
           name: asset.fileName,
@@ -1544,12 +1591,13 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       },
       status: `已载入攻击中间帧：${file.name}，正在保存资源。`
     });
-    void uploadFirstFrameAsset(file, {
-      publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
-      characterId,
-      actionKind,
-      characterAssetKind: "advanced-midframe"
-    })
+    void ensurePublicAssetBaseUrl()
+      .then((requestPublicAssetBaseUrl) => uploadFirstFrameAsset(file, {
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
+        characterId,
+        actionKind,
+        characterAssetKind: "advanced-midframe"
+      }))
       .then((asset) => {
         updateAdvancedAction(actionKind, {
           middleFramePreview: {
@@ -1650,6 +1698,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     });
     try {
       const characterTemplateImageDataUrl = await readImageUrlAsDataUrl(walkDirectionOutputPreview.url);
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const response = await createDirectionTemplateGeneration({
         templateKind: "run",
         model: directionImageModel,
@@ -1658,7 +1707,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         characterTemplateImageDataUrl
       }, {
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
         characterId
       });
       const imageUrl = extractImageUrl(response);
@@ -1709,7 +1758,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       const preview = {
         name: response.fileName ?? "input-4dir.png",
         url: appendCacheBust(toAbsoluteApiUrl(localUrl), Date.now().toString(36)),
-        publicUrl: response.publicUrl ?? toPublicAssetUrl(localUrl)
+        publicUrl: response.publicUrl ?? toPublicAssetUrl(localUrl, await ensurePublicAssetBaseUrl())
       };
       updateAdvancedAction(actionKind, {
         inputPreview: preview,
@@ -1745,6 +1794,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
     });
     try {
       const startFrameImageDataUrl = await readImageUrlAsDataUrl(startFrame.url);
+      const requestPublicAssetBaseUrl = await ensurePublicAssetBaseUrl();
       const response = await createAdvancedActionMidframeGeneration({
         actionKind,
         model: directionImageModel,
@@ -1753,7 +1803,7 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
         keyColor,
         startFrameImageDataUrl
       }, {
-        publicAssetBaseUrl: FIXED_PUBLIC_ASSET_BASE_URL,
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
         characterId
       });
       const imageUrl = extractImageUrl(response);
@@ -4651,17 +4701,17 @@ function buildInitialAdvancedActionState(status: string): AdvancedActionState {
   };
 }
 
-function advancedAssetToState(asset: AdvancedActionAssets | undefined, fallbackStatus: string): AdvancedActionState {
+function advancedAssetToState(asset: AdvancedActionAssets | undefined, fallbackStatus: string, publicAssetBaseUrl: string): AdvancedActionState {
   if (!asset) {
     return buildInitialAdvancedActionState(fallbackStatus);
   }
   const version = Date.now().toString(36);
   return {
     ...buildInitialAdvancedActionState("已自动载入该角色已有进阶动作资源。"),
-    keyframePreview: toMediaPreview(asset.keyframe, version),
-    inputPreview: toMediaPreview(asset.videoInput ?? asset.keyframe, version),
-    outputPreview: toMediaPreview(asset.videoSource, version),
-    middleFramePreview: toMediaPreview(asset.middleFrame, version),
+    keyframePreview: toMediaPreview(asset.keyframe, version, publicAssetBaseUrl),
+    inputPreview: toMediaPreview(asset.videoInput ?? asset.keyframe, version, publicAssetBaseUrl),
+    outputPreview: toMediaPreview(asset.videoSource, version, publicAssetBaseUrl),
+    middleFramePreview: toMediaPreview(asset.middleFrame, version, publicAssetBaseUrl),
     jobId: asset.videoSource ? (asset.export?.jobId ?? "existing-video") : "",
     result: asset.export ? normalizeFourDirectionResult(asset.export) : null
   };
@@ -4973,20 +5023,28 @@ function buildReferenceImageUrl(path: string, version: string, kind: Module01Ref
   return version ? appendCacheBust(absoluteUrl, `${version}-${kind}`) : absoluteUrl;
 }
 
-function toMediaPreview(asset: CharacterAssetFile | undefined, version: string): MediaPreview | null {
+function toMediaPreview(asset: CharacterAssetFile | undefined, version: string, publicAssetBaseUrl: string): MediaPreview | null {
   if (!asset) {
     return null;
   }
   return {
     name: asset.fileName,
     url: appendCacheBust(toAbsoluteApiUrl(asset.url), `${version}-${asset.fileName}`),
-    publicUrl: toPublicAssetUrl(asset.url)
+    publicUrl: toPublicAssetUrl(asset.url, publicAssetBaseUrl)
   };
 }
 
-function toPublicAssetUrl(localUrl: string): string {
+function toPublicAssetUrl(localUrl: string, publicAssetBaseUrl: string): string {
   if (/^https?:\/\//i.test(localUrl)) {
     return localUrl;
   }
-  return `${FIXED_PUBLIC_ASSET_BASE_URL}${localUrl.startsWith("/") ? "" : "/"}${localUrl}`;
+  const normalizedBase = publicAssetBaseUrl.trim();
+  if (!normalizedBase) {
+    return toAbsoluteApiUrl(localUrl);
+  }
+  if (normalizedBase.endsWith("/assets")) {
+    const serverBase = normalizedBase.slice(0, -"/assets".length);
+    return `${serverBase}${localUrl.startsWith("/") ? "" : "/"}${localUrl}`;
+  }
+  return `${normalizedBase.replace(/\/$/, "")}${localUrl.startsWith("/") ? "" : "/"}${localUrl}`;
 }

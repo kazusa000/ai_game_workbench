@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -15,6 +15,32 @@ afterEach(async () => {
 });
 
 describe("asset routes", () => {
+  it("returns the cloudflared public asset base written by the startup script", async () => {
+    await mkdir(join(tempDir, "config"), { recursive: true });
+    await writeFile(join(tempDir, "config", "public-tunnel.json"), `\uFEFF${JSON.stringify({
+      provider: "cloudflare-quick-tunnel",
+      url: "https://auto-tunnel.trycloudflare.com",
+      publicAssetBaseUrl: "https://auto-tunnel.trycloudflare.com/assets",
+      updatedAt: "2026-06-05T00:00:00.000Z"
+    })}`);
+    const app = createApp({
+      storageDir: tempDir,
+      port: 8787
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/runtime-config"
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      publicAssetBaseUrl: "https://auto-tunnel.trycloudflare.com/assets",
+      publicTunnelProvider: "cloudflare-quick-tunnel",
+      publicTunnelUrl: "https://auto-tunnel.trycloudflare.com"
+    });
+  });
+
   it("creates and lists character folders without metadata files", async () => {
     const app = createApp({
       storageDir: tempDir,

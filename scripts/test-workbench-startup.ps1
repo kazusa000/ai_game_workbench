@@ -82,7 +82,7 @@ http.createServer((_request, response) => {
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "scripts\start-workbench.ps1") -NoNgrok -ServerPort $apiPort -WebPort $webPort 2>&1
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "scripts\start-workbench.ps1") -NoTunnel -ServerPort $apiPort -WebPort $webPort 2>&1
     $exitCode = $LASTEXITCODE
   } finally {
     $ErrorActionPreference = $previousErrorActionPreference

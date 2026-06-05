@@ -11,6 +11,7 @@ import { registerGodotExportRoutes } from "./routes/godotExport";
 import { registerModule02Routes } from "./routes/module02";
 import { registerOneClickCharacterRoutes, type OneClickCharacterJobRunner } from "./routes/oneClickCharacterJobs";
 import { registerProviderSettingsRoutes } from "./routes/providerSettings";
+import { registerRuntimeConfigRoutes } from "./routes/runtimeConfig";
 import { resolveDefaultFfmpegPath, resolveDefaultModule01CharacterExportDir, resolveDefaultPresetsDir, type AppConfig } from "./config";
 
 export type CreateAppOptions = Pick<AppConfig, "storageDir"> & Partial<AppConfig> & {
@@ -35,6 +36,10 @@ export function createApp(options: CreateAppOptions) {
   });
 
   app.get("/api/health", async () => ({ ok: true, storageDir: options.storageDir }));
+  registerRuntimeConfigRoutes(app, {
+    storageDir: options.storageDir,
+    publicAssetBaseUrl: options.publicAssetBaseUrl
+  });
   registerProviderSettingsRoutes(app, {
     storageDir: options.storageDir,
     openRouterApiKey: options.openRouterApiKey,

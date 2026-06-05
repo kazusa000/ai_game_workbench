@@ -63,13 +63,13 @@ Double-click:
 tools\launcher\release\AiGameWorkbenchLauncher.exe
 ```
 
-The launcher runs `scripts/start-workbench.ps1 -OpenBrowser`, which starts or reuses the API server, Vite web server, and the configured ngrok tunnel, then opens the workbench page.
+The launcher runs `scripts/start-workbench.ps1 -OpenBrowser`, which starts or reuses the API server, starts a Cloudflare Quick Tunnel with `cloudflared`, starts the Vite web server, writes the temporary public URL into server storage, then opens the workbench page.
 
 Advanced script arguments can be passed to the exe. For example:
 
 ```powershell
-tools\launcher\release\AiGameWorkbenchLauncher.exe -NoNgrok
-tools\launcher\release\AiGameWorkbenchLauncher.exe -Check -NoNgrok
+tools\launcher\release\AiGameWorkbenchLauncher.exe -NoTunnel
+tools\launcher\release\AiGameWorkbenchLauncher.exe -Check -NoTunnel
 ```
 
 Rebuild the exe after changing launcher source:
@@ -78,12 +78,14 @@ Rebuild the exe after changing launcher source:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-launcher.ps1
 ```
 
-`npm run dev:workbench` starts or reuses the API server, Vite web server, and the configured ngrok tunnel together. By default it uses `https://darn-skittle-unwoven.ngrok-free.dev` as the public asset base for uploaded first-frame images. Override it when needed:
+`npm run dev:workbench` starts or reuses the API server, Cloudflare Quick Tunnel, and Vite web server together. The script looks for `cloudflared` on `PATH`, `tools\cloudflared\cloudflared.exe`, or `tools\cloudflared.exe`; if it is missing, the script downloads it into ignored runtime storage at `apps/server/storage/runtime/cloudflared/cloudflared.exe`. `CLOUDFLARED_PATH` can point to a custom exe. The generated `https://*.trycloudflare.com` URL is written to `apps/server/storage/config/public-tunnel.json`, and the web app uses it automatically for uploaded images that cloud video models need to fetch.
 
 ```powershell
-$env:AI_GAME_WORKBENCH_PUBLIC_URL="https://your-domain.ngrok-free.dev"
+$env:CLOUDFLARED_PATH="E:\tools\cloudflared.exe"
 npm run dev:workbench
 ```
+
+`-NoNgrok` is still accepted as a legacy alias for `-NoTunnel`.
 
 ## OpenRouter Key Note
 

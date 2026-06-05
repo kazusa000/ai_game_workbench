@@ -16,6 +16,7 @@ import {
 import { readModule01WorkflowConfig } from "./workflowConfig";
 import { readProviderSettingsDocument, resolveGenerationProviderModel } from "../providerSettings";
 import type { ProviderRequestAuth, ResolvedProviderModel } from "../providerSettings";
+import { resolveRuntimePublicAssetBaseUrl } from "../publicTunnel";
 
 type AdvancedActionKind = "run" | "attack-1" | "jump";
 type OneClickStepStatus = "pending" | "running" | "completed" | "failed" | "skipped";
@@ -232,7 +233,7 @@ async function validateStartInput(
 
   return {
     characterId,
-    publicAssetBaseUrl: input.publicAssetBaseUrl?.trim() || config.publicAssetBaseUrl?.trim() || "https://darn-skittle-unwoven.ngrok-free.dev",
+    publicAssetBaseUrl: input.publicAssetBaseUrl?.trim() || resolveRuntimePublicAssetBaseUrl(config) || "",
     referenceImageDataUrl: input.referenceImageDataUrl,
     firstFrame: {
       model: input.firstFrame.model,

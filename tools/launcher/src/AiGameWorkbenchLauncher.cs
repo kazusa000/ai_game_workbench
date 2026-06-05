@@ -186,7 +186,7 @@ namespace AiGameWorkbenchLauncher
 
                 Console.WriteLine("AI Game Workbench launcher");
                 Console.WriteLine("Repository: " + command.RepoRoot);
-                Console.WriteLine("Starting backend, frontend, and ngrok tunnel...");
+                Console.WriteLine("Starting backend, frontend, and Cloudflare tunnel...");
 
                 var processStartInfo = new ProcessStartInfo
                 {

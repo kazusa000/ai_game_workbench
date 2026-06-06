@@ -1200,6 +1200,26 @@ describe("App", () => {
     expect(screen.queryByAltText("待机预览")).not.toBeInTheDocument();
   });
 
+  it("uploads a module 01 character base template from the base template page", async () => {
+    openSpriteAnimator();
+
+    fireEvent.change(screen.getByLabelText("上传角色基准模板"), {
+      target: { files: [new File(["uploaded-base-template"], "base-template.png", { type: "image/png" })] }
+    });
+
+    await waitFor(() => {
+      const uploadCall = fetchMock.mock.calls.find(([url, init]) =>
+        String(url).includes("/api/assets/first-frame")
+        && ((init as RequestInit | undefined)?.headers as Record<string, string> | undefined)?.["x-character-asset-kind"] === "direction-base-template"
+      );
+      expect(uploadCall).toBeDefined();
+    });
+    expect(await screen.findByAltText("角色基准模板预览")).toHaveAttribute(
+      "src",
+      expect.stringContaining(`${characterBase}/base-character/direction-templates/base-template.png`)
+    );
+  });
+
   it("opens character preview with shared map settings below the stage", () => {
     openSpriteAnimator();
 

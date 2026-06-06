@@ -1232,6 +1232,50 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
       });
   };
 
+  const handleDirectionBaseTemplateUpload = (file: File) => {
+    const characterId = requireCharacter(setFirstFrameStatus);
+    if (!characterId) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setFirstFrameStatus("上传失败：请选择图片文件。");
+      return;
+    }
+    assetHydrationVersionRef.current += 1;
+    const previewUrl = URL.createObjectURL(file);
+    setDirectionBaseTemplateFile(file);
+    setDirectionBaseTemplatePreview((current) => {
+      if (current?.url.startsWith("blob:")) {
+        URL.revokeObjectURL(current.url);
+      }
+      return {
+        name: file.name,
+        url: previewUrl
+      };
+    });
+    setFirstFrameStatus(`已载入角色基准模板：${file.name}，正在保存资源。`);
+    void ensurePublicAssetBaseUrl()
+      .then((requestPublicAssetBaseUrl) => uploadFirstFrameAsset(file, {
+        publicAssetBaseUrl: requestPublicAssetBaseUrl,
+        characterId,
+        characterAssetKind: "direction-base-template"
+      }))
+      .then((asset) => {
+        setDirectionBaseTemplatePreview((current) => current?.url === previewUrl ? {
+          ...current,
+          name: asset.fileName,
+          url: toAbsoluteApiUrl(asset.localUrl ?? asset.publicUrl),
+          publicUrl: asset.publicUrl
+        } : current);
+        setDirectionTemplateStatus(`角色基准模板已保存：${asset.fileName}。`);
+        setFirstFrameStatus(`角色基准模板已保存：${asset.fileName}`);
+        void hydrateCharacterAssets(characterId, { preserveStatuses: true });
+      })
+      .catch((error: unknown) => {
+        setFirstFrameStatus(`角色基准模板保存失败：${getErrorMessage(error)}`);
+      });
+  };
+
   const handleOneClickReferenceUpload = (file: File) => {
     if (!file.type.startsWith("image/")) {
       setOneClickStatus("上传失败：请选择图片文件。");
@@ -3002,6 +3046,10 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
               {
                 title: "基准模板",
                 content: <ImagePreview alt="基准模板输出预览" preview={firstFrameOutputPreview} emptyLabel="等待基准模板" />
+              },
+              {
+                title: "角色基准模板",
+                content: <ImagePreview alt="角色基准模板预览" preview={effectiveDirectionBaseTemplatePreview} emptyLabel="等待角色基准模板" />
               }
             ]}
             controls={(
@@ -3018,6 +3066,21 @@ export function SpriteAnimator({ defaultKeys, onBack }: SpriteAnimatorProps) {
                         const file = event.target.files?.[0];
                         if (file) {
                           handleCharacterReferenceUpload(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  <label className="file-picker">
+                    <Upload size={16} /> 上传角色基准模板
+                    <input
+                      aria-label="上传角色基准模板"
+                      className="visually-hidden"
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          handleDirectionBaseTemplateUpload(file);
                         }
                       }}
                     />

@@ -65,6 +65,40 @@ function Resolve-CloudflaredExe([string]$RequestedPath) {
   }
 }
 
+function Resolve-NpmCmd {
+  $candidatePaths = @(
+    (Join-Path $repoRoot "tools\node\npm.cmd"),
+    (Join-Path $repoRoot "tools\nodejs\npm.cmd")
+  )
+  foreach ($candidatePath in $candidatePaths) {
+    if (Test-Path $candidatePath) {
+      $nodeDir = Split-Path -Parent $candidatePath
+      $env:Path = "$nodeDir;$env:Path"
+      return (Resolve-Path $candidatePath).Path
+    }
+  }
+
+  $nestedToolNpm = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot "tools") -Recurse -Filter "npm.cmd" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match "\\node[^\\]*\\npm\.cmd$" } |
+    Sort-Object FullName |
+    Select-Object -First 1)
+  if ($nestedToolNpm.Count -gt 0) {
+    $nodeDir = Split-Path -Parent $nestedToolNpm[0].FullName
+    $env:Path = "$nodeDir;$env:Path"
+    return $nestedToolNpm[0].FullName
+  }
+
+  $command = Get-Command npm.cmd -ErrorAction SilentlyContinue
+  if (-not $command) {
+    $command = Get-Command npm -ErrorAction SilentlyContinue
+  }
+  if ($command) {
+    return $command.Source
+  }
+
+  throw "Node.js/npm was not found. Install Node.js 20+, or use the full portable package containing tools\node\npm.cmd."
+}
+
 function Test-WorkbenchApi([int]$Port, [string]$ExpectedStorageDir) {
   try {
     $health = Invoke-RestMethod -Uri "http://127.0.0.1:${Port}/api/health" -Method Get -TimeoutSec 3
@@ -101,6 +135,13 @@ function Test-TcpPort([int]$Port) {
 }
 
 function Start-WorkbenchProcess([string]$Name, [string]$FilePath, [string[]]$Arguments) {
+  if (-not (Test-Path $FilePath)) {
+    $command = Get-Command $FilePath -ErrorAction SilentlyContinue
+    if (-not $command) {
+      throw "Failed to start $($Name): executable was not found: $FilePath."
+    }
+    $FilePath = $command.Source
+  }
   $stdout = Join-Path $logDir "$Name.out.log"
   $stderr = Join-Path $logDir "$Name.err.log"
   Remove-Item -Force -ErrorAction SilentlyContinue $stdout, $stderr
@@ -242,7 +283,7 @@ function Write-PublicTunnelConfig([string]$TunnelUrl) {
 
 $disableTunnel = $NoTunnel -or $NoNgrok
 $cloudflaredExe = if ($disableTunnel) { $null } else { Resolve-CloudflaredExe $CloudflaredPath }
-$npmCmd = "npm.cmd"
+$npmCmd = Resolve-NpmCmd
 $env:STORAGE_DIR = $serverStorageDir
 $env:PORT = "$ServerPort"
 
@@ -254,6 +295,7 @@ if ($Check) {
     web = "http://127.0.0.1:$WebPort"
     tunnelProvider = if ($disableTunnel) { $null } else { "cloudflare-quick-tunnel" }
     cloudflaredExe = $cloudflaredExe
+    npmCmd = $npmCmd
     publicTunnelConfig = $publicTunnelConfigPath
     logs = $logDir
   } | ConvertTo-Json -Compress

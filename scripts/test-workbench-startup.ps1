@@ -65,6 +65,15 @@ if ($startScript -notmatch "function Wait-WorkbenchUntilStopped") {
 if ($startScript -notmatch "function Stop-WorkbenchServiceProcesses") {
   Write-Error "Expected start-workbench.ps1 to stop workbench services from the control terminal."
 }
+if ($startScript -notmatch "function Resolve-NpmCmd") {
+  Write-Error "Expected start-workbench.ps1 to resolve bundled or system npm before startup."
+}
+if ($startScript -notmatch "tools\\node\\npm\.cmd") {
+  Write-Error "Expected start-workbench.ps1 to prefer a bundled portable Node runtime."
+}
+if (-not $startScript.Contains("Node.js/npm was not found")) {
+  Write-Error "Expected start-workbench.ps1 to report a clear missing Node.js/npm error."
+}
 $tunnelWaitIndex = $startScript.IndexOf("Wait-CloudflaredTunnelUrl")
 $webStartIndex = $startScript.IndexOf('Start-WorkbenchProcess "web"')
 if ($tunnelWaitIndex -lt 0 -or $webStartIndex -lt 0 -or $webStartIndex -lt $tunnelWaitIndex) {
@@ -79,7 +88,7 @@ $webPortArgIndex = $startScript.IndexOf('Start-WorkbenchProcess "web" $npmCmd @(
 if ($webPortArgIndex -lt 0) {
   Write-Error "Expected start-workbench.ps1 to pass -WebPort into Vite via --port."
 }
-Write-Host "PASS startup script reports progress, delays web until tunnel readiness, and keeps a control terminal"
+Write-Host "PASS startup script reports progress, resolves npm, delays web until tunnel readiness, and keeps a control terminal"
 
 try {
   $fakeApi = Start-TestNodeServer "fake-api" @"
